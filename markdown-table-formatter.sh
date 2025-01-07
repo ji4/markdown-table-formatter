@@ -20,8 +20,8 @@ BEGIN {
     print "table { border-collapse: collapse; width: 100%; margin: 20px 0; }"
     print "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }"
     print "th { background-color: #f2f2f2; }"
-    print ".list-item { margin: 5px 0; padding-left: 20px; position: relative; }"
-    print ".list-item::before { content: \"•\"; position: absolute; left: 5px; }"
+    print "ul { margin: 0; padding-left: 20px; }"
+    print "li { margin: 5px 0; }"
     # Markdown 格式的 CSS
     print "h1 { font-size: 2em; margin: 0.67em 0; }"
     print "h2 { font-size: 1.5em; margin: 0.75em 0; }"
@@ -39,6 +39,7 @@ BEGIN {
     print "<body>"
     in_table = 0
     in_header = 0
+    in_list = 0
 }
 
 # 處理表格開始
@@ -76,11 +77,16 @@ BEGIN {
         for (i = 1; i <= n; i++) {
             gsub(/^ +| +$/, "", cells[i])
             if (cells[i] ~ /<br>/) {
-                # 將 <br>- 替換為列表項目
-                gsub(/<br>- /, "</div><div class=\"list-item\">", cells[i])
-                # 處理第一個項目
-                sub(/^- /, "", cells[i])
-                print "<td><div class=\"list-item\">" cells[i] "</div></td>"
+                # 將列表項目轉換為 HTML 無序列表
+                split(cells[i], items, /<br>/)
+                print "<td><ul>"
+                for (j = 1; j <= length(items); j++) {
+                    if (items[j] ~ /^- /) {
+                        gsub(/^- /, "", items[j])
+                        print "<li>" items[j] "</li>"
+                    }
+                }
+                print "</ul></td>"
             } else {
                 print "<td>" cells[i] "</td>"
             }
@@ -106,6 +112,20 @@ BEGIN {
         next
     }
     
+    # 處理列表項目
+    if ($0 ~ /^- /) {
+        if (!in_list) {
+            print "<ul>"
+            in_list = 1
+        }
+        gsub(/^- /, "")
+        print "<li>" $0 "</li>"
+        next
+    } else if (in_list && $0 !~ /^- /) {
+        print "</ul>"
+        in_list = 0
+    }
+    
     # 加粗
     gsub(/\*\*([^\*]+)\*\*/, "<strong>\\1</strong>")
     # 斜體
@@ -113,12 +133,17 @@ BEGIN {
     # 行內程式碼
     gsub(/`([^`]+)`/, "<code>\\1</code>")
     
-    print
+    if ($0 !~ /^$/) {
+        print
+    }
 }
 
 END {
     if (in_table) {
         print "</table>"
+    }
+    if (in_list) {
+        print "</ul>"
     }
     print "</body>"
     print "</html>"
