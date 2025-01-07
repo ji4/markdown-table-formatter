@@ -22,7 +22,6 @@ BEGIN {
     print "th { background-color: #f2f2f2; }"
     print "ul { margin: 0; padding-left: 20px; }"
     print "li { margin: 5px 0; }"
-    # Markdown 格式的 CSS
     print "h1 { font-size: 2em; margin: 0.67em 0; }"
     print "h2 { font-size: 1.5em; margin: 0.75em 0; }"
     print "h3 { font-size: 1.17em; margin: 0.83em 0; }"
@@ -75,8 +74,13 @@ BEGIN {
     } else {
         print "<tr>"
         for (i = 1; i <= n; i++) {
+            # 移除首尾空白
             gsub(/^ +| +$/, "", cells[i])
-            if (cells[i] ~ /-/) {
+            
+            # 檢查是否包含列表項目
+            if (cells[i] ~ /(^[•-]|<br>[•-])/) {
+                # 統一轉換項目符號
+                gsub(/•/, "-", cells[i])
                 # 確保所有的破折號前有空格
                 gsub(/<br>-/, "<br>- ", cells[i])
                 # 如果第一個字符是破折號，確保它前面有空格
@@ -84,15 +88,13 @@ BEGIN {
                     cells[i] = " " cells[i]
                 }
                 
-                # 分割項目
+                # 分割項目並處理
                 split(cells[i], items, /<br>/)
                 print "<td><ul>"
                 for (j = 1; j <= length(items); j++) {
-                    # 修剪每個項目的空白
                     gsub(/^ +| +$/, "", items[j])
-                    if (items[j] ~ /^-/) {
-                        # 移除破折號和之後的空格
-                        gsub(/^- */, "", items[j])
+                    if (items[j] ~ /^[•-]/) {
+                        gsub(/^[•-] */, "", items[j])
                         if (items[j] != "") {
                             print "<li>" items[j] "</li>"
                         }
@@ -115,8 +117,7 @@ BEGIN {
         in_table = 0
     }
     
-    # 處理 Markdown 格式
-    # 標題
+    # 處理標題
     if ($0 ~ /^#{1,6} /) {
         level = match($0, /#{1,6}/)
         title = substr($0, RLENGTH + 2)
@@ -138,11 +139,9 @@ BEGIN {
         in_list = 0
     }
     
-    # 加粗
+    # 處理其他 Markdown 格式
     gsub(/\*\*([^\*]+)\*\*/, "<strong>\\1</strong>")
-    # 斜體
     gsub(/\*([^\*]+)\*/, "<em>\\1</em>")
-    # 行內程式碼
     gsub(/`([^`]+)`/, "<code>\\1</code>")
     
     if ($0 !~ /^$/) {
