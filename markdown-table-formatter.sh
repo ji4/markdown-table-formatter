@@ -76,14 +76,26 @@ BEGIN {
         print "<tr>"
         for (i = 1; i <= n; i++) {
             gsub(/^ +| +$/, "", cells[i])
-            if (cells[i] ~ /<br>/) {
-                # 將列表項目轉換為 HTML 無序列表
+            if (cells[i] ~ /-/) {
+                # 確保所有的破折號前有空格
+                gsub(/<br>-/, "<br>- ", cells[i])
+                # 如果第一個字符是破折號，確保它前面有空格
+                if (cells[i] ~ /^-/) {
+                    cells[i] = " " cells[i]
+                }
+                
+                # 分割項目
                 split(cells[i], items, /<br>/)
                 print "<td><ul>"
                 for (j = 1; j <= length(items); j++) {
-                    if (items[j] ~ /^- /) {
-                        gsub(/^- /, "", items[j])
-                        print "<li>" items[j] "</li>"
+                    # 修剪每個項目的空白
+                    gsub(/^ +| +$/, "", items[j])
+                    if (items[j] ~ /^-/) {
+                        # 移除破折號和之後的空格
+                        gsub(/^- */, "", items[j])
+                        if (items[j] != "") {
+                            print "<li>" items[j] "</li>"
+                        }
                     }
                 }
                 print "</ul></td>"
