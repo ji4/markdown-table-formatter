@@ -20,8 +20,10 @@ BEGIN {
     print "table { border-collapse: collapse; width: 100%; margin: 20px 0; }"
     print "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }"
     print "th { background-color: #f2f2f2; }"
-    print "ul { margin: 0; padding-left: 20px; }"
+    print "ul, ol { margin: 0 0 1em 0; padding-left: 20px; }"
     print "li { margin: 5px 0; }"
+    print "li > ul, li > ol { margin: 5px 0; }"  # 巢狀列表樣式
+    print ".nested-content { margin-left: 20px; }"  # 巢狀內容的縮排
     print "h1 { font-size: 2em; margin: 0.67em 0; }"
     print "h2 { font-size: 1.5em; margin: 0.75em 0; }"
     print "h3 { font-size: 1.17em; margin: 0.83em 0; }"
@@ -33,110 +35,146 @@ BEGIN {
     print "code { font-family: monospace; background-color: #f5f5f5; padding: 2px 4px; }"
     print "pre { background-color: #f5f5f5; padding: 16px; overflow: auto; }"
     print "blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; }"
+    print ".table-container { margin: 1em 0; clear: both; }"
     print "</style>"
     print "</head>"
     print "<body>"
     in_table = 0
     in_header = 0
     in_list = 0
+    list_type = ""
+    table_buffer = ""
+    list_level = 0
+    prev_line_empty = 0
 }
 
-# 處理表格開始
-/^\|/ {
-    if (!in_table) {
-        print "<table>"
-        in_table = 1
-        in_header = 1
-    }
+# 檢查是否為表格標記行
+function is_table_line(line) {
+    return line ~ /^\|.*\|$/
 }
 
-# 處理表格分隔線
-/^[|:-]+$/ { 
-    in_header = 0
-    next 
+# 檢查是否為表格分隔行
+function is_table_separator(line) {
+    return line ~ /^\|[\-:| ]+\|$/
 }
 
 # 處理表格行
-/^\|/ {
-    # 移除開頭和結尾的 |
-    gsub(/^\| *| *\|$/, "")
-    
-    # 分割欄位
-    n = split($0, cells, /\|/)
-    
-    if (in_header) {
-        print "<tr>"
-        for (i = 1; i <= n; i++) {
-            gsub(/^ +| +$/, "", cells[i])
-            print "<th>" cells[i] "</th>"
+{
+    if (is_table_line($0)) {
+        if (!in_table) {
+            if (in_list) {
+                table_buffer = "<div class=\"nested-content\">\n"
+            }
+            table_buffer = table_buffer "<div class=\"table-container\">\n<table>\n"
+            in_table = 1
+            in_header = 1
         }
-        print "</tr>"
-    } else {
-        print "<tr>"
-        for (i = 1; i <= n; i++) {
-            # 移除首尾空白
-            gsub(/^ +| +$/, "", cells[i])
-            
-            # 檢查是否包含列表項目
-            if (cells[i] ~ /(^[•-]|<br>[•-])/) {
-                # 統一轉換項目符號
-                gsub(/•/, "-", cells[i])
-                # 確保所有的破折號前有空格
-                gsub(/<br>-/, "<br>- ", cells[i])
-                # 如果第一個字符是破折號，確保它前面有空格
-                if (cells[i] ~ /^-/) {
-                    cells[i] = " " cells[i]
-                }
+        
+        line = $0
+        gsub(/^ *\| *| *\| *$/, "", line)
+        n = split(line, cells, / *\| */)
+        
+        if (!is_table_separator($0)) {
+            table_buffer = table_buffer "<tr>\n"
+            for (i = 1; i <= n; i++) {
+                cell_content = cells[i]
+                gsub(/^ +| +$/, "", cell_content)
                 
-                # 分割項目並處理
-                split(cells[i], items, /<br>/)
-                print "<td><ul>"
-                for (j = 1; j <= length(items); j++) {
-                    gsub(/^ +| +$/, "", items[j])
-                    if (items[j] ~ /^[•-]/) {
-                        gsub(/^[•-] */, "", items[j])
-                        if (items[j] != "") {
-                            print "<li>" items[j] "</li>"
+                if (in_header) {
+                    table_buffer = table_buffer "  <th>" cell_content "</th>\n"
+                } else {
+                    if (cell_content ~ /^[•-]/) {
+                        table_buffer = table_buffer "  <td><ul>\n"
+                        split(cell_content, items, /<br>/)
+                        for (j in items) {
+                            if (items[j] ~ /^[•-]/) {
+                                gsub(/^[•-] */, "", items[j])
+                                if (items[j] != "") {
+                                    table_buffer = table_buffer "    <li>" items[j] "</li>\n"
+                                }
+                            }
                         }
+                        table_buffer = table_buffer "  </ul></td>\n"
+                    } else {
+                        table_buffer = table_buffer "  <td>" cell_content "</td>\n"
                     }
                 }
-                print "</ul></td>"
-            } else {
-                print "<td>" cells[i] "</td>"
             }
+            table_buffer = table_buffer "</tr>\n"
+        } else {
+            in_header = 0
         }
-        print "</tr>"
-    }
-    next
-}
-
-# 處理非表格行
-{
-    if (in_table) {
-        print "</table>"
-        in_table = 0
+        next
+    } else {
+        if (in_table) {
+            print table_buffer "</table>\n</div>"
+            if (in_list) {
+                print "</div>"
+            }
+            table_buffer = ""
+            in_table = 0
+            in_header = 0
+        }
     }
     
     # 處理標題
     if ($0 ~ /^#{1,6} /) {
+        if (in_list) {
+            print "</" list_type ">"
+            in_list = 0
+        }
         level = match($0, /#{1,6}/)
         title = substr($0, RLENGTH + 2)
         print "<h" RLENGTH ">" title "</h" RLENGTH ">"
         next
     }
     
-    # 處理列表項目
-    if ($0 ~ /^- /) {
-        if (!in_list) {
-            print "<ul>"
+    # 處理列表
+    if ($0 ~ /^[0-9]+\. / || $0 ~ /^[-*] /) {
+        indent = match($0, /[^[:space:]]/)
+        current_level = int((indent - 1) / 2)
+        
+        if (!in_list || current_level == 0) {
+            if ($0 ~ /^[0-9]+\. /) {
+                print "<ol>"
+                list_type = "ol"
+            } else {
+                print "<ul>"
+                list_type = "ul"
+            }
             in_list = 1
+            list_level = current_level
+        } else if (current_level > list_level) {
+            if ($0 ~ /^[0-9]+\. /) {
+                print "<li><ol class=\"nested-list\">"
+                list_type = "ol"
+            } else {
+                print "<li><ul class=\"nested-list\">"
+                list_type = "ul"
+            }
+            list_level = current_level
+        } else if (current_level < list_level) {
+            while (list_level > current_level) {
+                print "</li></" list_type ">"
+                list_level--
+            }
         }
-        gsub(/^- /, "")
-        print "<li>" $0 "</li>"
+        
+        if ($0 ~ /^[0-9]+\. /) {
+            gsub(/^[0-9]+\. /, "")
+        } else {
+            gsub(/^[-*] /, "")
+        }
+        print "<li>" $0
+        
+        if ($0 ~ /[^[:space:]]$/) {
+            print "</li>"
+        }
         next
-    } else if (in_list && $0 !~ /^- /) {
-        print "</ul>"
+    } else if (in_list && $0 ~ /^$/) {
+        print "</li></" list_type ">"
         in_list = 0
+        list_level = 0
     }
     
     # 處理其他 Markdown 格式
@@ -147,14 +185,19 @@ BEGIN {
     if ($0 !~ /^$/) {
         print
     }
+    
+    prev_line_empty = ($0 ~ /^$/)
 }
 
 END {
     if (in_table) {
-        print "</table>"
+        print table_buffer "</table>\n</div>"
+        if (in_list) {
+            print "</div>"
+        }
     }
     if (in_list) {
-        print "</ul>"
+        print "</li></" list_type ">"
     }
     print "</body>"
     print "</html>"
