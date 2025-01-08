@@ -40,6 +40,8 @@ BEGIN {
     current_item = ""
     in_table = 0
     table_content = ""
+    table_row_count = 0
+    skip_next_separator = 0
 }
 
 function get_indent(line) {
@@ -47,11 +49,61 @@ function get_indent(line) {
     return RSTART - 1
 }
 
+function process_table_row(line,    cells, i, n, cell, items, j) {
+    # 忽略純分隔行
+    if (line ~ /^[\| :-]+$/) {
+        return
+    }
+
+    if (!in_table) {
+        table_content = "<div class=\"table-container\">\n<table>\n"
+        in_table = 1
+        table_row_count = 0
+    }
+
+    # 移除首尾的管道符號並分割儲存格
+    gsub(/^ *\| *| *\| *$/, "", line)
+    n = split(line, cells, /\|/)
+    
+    table_content = table_content "<tr>\n"
+    
+    for (i = 1; i <= n; i++) {
+        cell = cells[i]
+        gsub(/^ +| +$/, "", cell)
+        
+        # 第一行使用 th
+        if (table_row_count == 0) {
+            table_content = table_content "  <th>" cell "</th>\n"
+        } else {
+            if (cell ~ /[•]/) {
+                table_content = table_content "  <td><ul>\n"
+                split(cell, items, /[•]/)
+                for (j in items) {
+                    item = items[j]
+                    gsub(/^ +| +$/, "", item)
+                    if (item != "") {
+                        table_content = table_content "    <li>" item (j < length(items) ? "<br>" : "") "</li>\n"
+                    }
+                }
+                table_content = table_content "  </ul></td>\n"
+            } else {
+                table_content = table_content "  <td>" cell "</td>\n"
+            }
+        }
+    }
+    
+    table_content = table_content "</tr>\n"
+    table_row_count++
+}
+
 function flush_list_item() {
     if (current_item) {
         if (table_content) {
+            table_content = table_content "</table>\n</div>"
             print current_item table_content "</li>"
             table_content = ""
+            in_table = 0
+            table_row_count = 0
         } else {
             print current_item "</li>"
         }
@@ -82,74 +134,24 @@ function flush_list_item() {
         
         # 處理新列表項
         sub(/^[-*][[:space:]]*/, "", content)
-        if (content ~ /:$/) {
-            current_item = "<li>" content
-            in_table = 0
-        } else {
-            current_item = "<li>" content
-        }
+        current_item = "<li>" content
     }
     # 處理表格行
     else if (content ~ /^\|/ && indent > base_indent) {
-        if (!table_content && current_item) {
-            table_content = "<div class=\"table-container\">\n<table>\n"
-            in_table = 1
-        }
-        
-        if (content ~ /^[|[:space:]-:]+$/) {
-            next
-        }
-        
-        # 移除首尾的管道符號
-        gsub(/^ *\| *| *\| *$/, "", content)
-        
-        # 處理表格行
-        n = split(content, cells, /\|/)
-        table_content = table_content "<tr>\n"
-        
-        for (i = 1; i <= n; i++) {
-            cell = cells[i]
-            gsub(/^ +| +$/, "", cell)
-            
-            if (!in_table || table_content ~ /<table>\n$/) {
-                table_content = table_content "  <th>" cell "</th>\n"
-            } else {
-                if (cell ~ /[•]/) {
-                    table_content = table_content "  <td><ul>\n"
-                    split(cell, items, /[•]/)
-                    for (j in items) {
-                        item = items[j]
-                        gsub(/^ +| +$/, "", item)
-                        if (item != "") {
-                            table_content = table_content "    <li>" item "</li>\n"
-                        }
-                    }
-                    table_content = table_content "  </ul></td>\n"
-                } else {
-                    table_content = table_content "  <td>" cell "</td>\n"
-                }
-            }
-        }
-        table_content = table_content "</tr>\n"
-        if (!in_table) in_table = 1
+        process_table_row(content)
     }
     # 處理空行
     else if (content ~ /^[[:space:]]*$/) {
-        if (table_content) {
-            table_content = table_content "</table>\n</div>"
-        }
         flush_list_item()
         if (current_list) {
             print "</" current_list ">"
             current_list = ""
         }
+        base_indent = -1
     }
 }
 
 END {
-    if (table_content) {
-        table_content = table_content "</table>\n</div>"
-    }
     flush_list_item()
     if (current_list) {
         print "</" current_list ">"
