@@ -41,7 +41,9 @@ BEGIN {
     in_table = 0
     table_content = ""
     table_row_count = 0
-    skip_next_separator = 0
+    is_first_table_row = 1
+    list_stack_type[0] = ""
+    list_stack_depth = 0
 }
 
 function get_indent(line) {
@@ -50,8 +52,8 @@ function get_indent(line) {
 }
 
 function process_table_row(line,    cells, i, n, cell, items, j) {
-    # 忽略純分隔行
     if (line ~ /^[\| :-]+$/) {
+        is_first_table_row = 0
         return
     }
 
@@ -61,7 +63,6 @@ function process_table_row(line,    cells, i, n, cell, items, j) {
         table_row_count = 0
     }
 
-    # 移除首尾的管道符號並分割儲存格
     gsub(/^ *\| *| *\| *$/, "", line)
     n = split(line, cells, /\|/)
     
@@ -71,8 +72,8 @@ function process_table_row(line,    cells, i, n, cell, items, j) {
         cell = cells[i]
         gsub(/^ +| +$/, "", cell)
         
-        # 第一行使用 th
-        if (table_row_count == 0) {
+        # 使用 is_first_table_row 而不是 table_row_count 來決定是否為標題
+        if (is_first_table_row) {
             table_content = table_content "  <th>" cell "</th>\n"
         } else {
             if (cell ~ /[•]/) {
@@ -82,7 +83,7 @@ function process_table_row(line,    cells, i, n, cell, items, j) {
                     item = items[j]
                     gsub(/^ +| +$/, "", item)
                     if (item != "") {
-                        table_content = table_content "    <li>" item (j < length(items) ? "<br>" : "") "</li>\n"
+                        table_content = table_content "    <li>" item (j < length(items) ? "<br><br>" : "") "</li>\n"
                     }
                 }
                 table_content = table_content "  </ul></td>\n"
@@ -94,6 +95,25 @@ function process_table_row(line,    cells, i, n, cell, items, j) {
     
     table_content = table_content "</tr>\n"
     table_row_count++
+    is_first_table_row = 0
+}
+
+function start_list(type, indent) {
+    list_stack_type[list_stack_depth] = type
+    list_stack_indent[list_stack_depth] = indent
+    list_stack_depth++
+    return "<" type ">"
+}
+
+function end_list(until_indent,    i, output) {
+    output = ""
+    for (i = list_stack_depth - 1; i >= 0; i--) {
+        if (list_stack_indent[i] > until_indent) {
+            output = output "</" list_stack_type[i] ">\n"
+            list_stack_depth--
+        }
+    }
+    return output
 }
 
 function flush_list_item() {
@@ -104,6 +124,7 @@ function flush_list_item() {
             table_content = ""
             in_table = 0
             table_row_count = 0
+            is_first_table_row = 1
         } else {
             print current_item "</li>"
         }
@@ -116,24 +137,42 @@ function flush_list_item() {
     content = $0
     gsub(/^[[:space:]]+/, "", content)
     
-    # 設置基準縮進
-    if (base_indent == -1 && content ~ /^[-*]/) {
-        base_indent = indent
+    # 處理標題
+    if ($0 ~ /^#{1,6} /) {
+        flush_list_item()
+        if (list_stack_depth > 0) {
+            printf "%s", end_list(-1)
+            list_stack_depth = 0
+        }
+        level = match($0, /#{1,6}/)
+        title = substr($0, RLENGTH + 2)
+        print "<h" RLENGTH ">" title "</h" RLENGTH ">"
+        next
     }
     
-    # 處理列表項
-    if (content ~ /^[-*]/) {
-        # 開始新列表
-        if (!current_list) {
-            print "<ul>"
-            current_list = "ul"
+    # 處理列表
+    if (content ~ /^[0-9]+\. / || content ~ /^[-*] /) {
+        is_numbered = (content ~ /^[0-9]+\. /)
+        list_type = is_numbered ? "ol" : "ul"
+        
+        # 檢查是否需要結束之前的列表
+        if (list_stack_depth > 0 && indent <= list_stack_indent[list_stack_depth - 1]) {
+            printf "%s", end_list(indent)
         }
         
-        # 處理前一個列表項
-        flush_list_item()
+        # 開始新列表（如果需要）
+        if (list_stack_depth == 0 || indent > list_stack_indent[list_stack_depth - 1]) {
+            print start_list(list_type, indent)
+        }
         
-        # 處理新列表項
-        sub(/^[-*][[:space:]]*/, "", content)
+        # 處理列表項
+        if (is_numbered) {
+            sub(/^[0-9]+\. /, "", content)
+        } else {
+            sub(/^[-*] /, "", content)
+        }
+        
+        flush_list_item()
         current_item = "<li>" content
     }
     # 處理表格行
@@ -143,18 +182,17 @@ function flush_list_item() {
     # 處理空行
     else if (content ~ /^[[:space:]]*$/) {
         flush_list_item()
-        if (current_list) {
-            print "</" current_list ">"
-            current_list = ""
+        if (list_stack_depth > 0) {
+            printf "%s", end_list(-1)
+            list_stack_depth = 0
         }
-        base_indent = -1
     }
 }
 
 END {
     flush_list_item()
-    if (current_list) {
-        print "</" current_list ">"
+    if (list_stack_depth > 0) {
+        printf "%s", end_list(-1)
     }
     print "</body>"
     print "</html>"
