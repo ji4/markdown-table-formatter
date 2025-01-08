@@ -52,9 +52,9 @@ function process_table_row(line) {
     }
 
     gsub(/^ *\| *| *\| *$/, "", line)
+    # 如果是分隔行，只設置 in_header = 0 並跳過
     if (line ~ /^[-:|]+$/) {
         in_header = 0
-        buffer = buffer "<tr><td colspan=\"100%\">" line "</td></tr>\n"
         return
     }
 
@@ -207,4 +207,4 @@ END {
 }
 ' "$INPUT_FILE" > "$OUTPUT_FILE"
 
-echo "處理完成。輸出檔案為: $OUTPUT_FILE"
+echo "處理完成。輸出檔案為: $OUTPUT_FILE
