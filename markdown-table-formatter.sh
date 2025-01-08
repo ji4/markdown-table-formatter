@@ -35,24 +35,25 @@ BEGIN {
     print "</head>"
     print "<body>"
     table_data = ""
-    table_rows = 0
     in_table = 0
     in_header = 0
     in_list = 0
     list_level = 0
     list_type = ""
     buffer = ""
+    in_list_item = 0
+    expect_table = 0
 }
 
 function process_table_row(line) {
     if (!in_table) {
-        buffer = buffer "<div class=\"table-container\">\n<table>\n"
+        buffer = (expect_table ? "" : "</li>") "<li><div class=\"table-container\">\n<table>\n"
         in_table = 1
         in_header = 1
+        expect_table = 0
     }
 
     gsub(/^ *\| *| *\| *$/, "", line)
-    # 如果是分隔行，只設置 in_header = 0 並跳過
     if (line ~ /^[-:|]+$/) {
         in_header = 0
         return
@@ -89,15 +90,19 @@ function process_table_row(line) {
     buffer = buffer "</tr>\n"
 }
 
+function flush_table() {
+    if (in_table) {
+        buffer = buffer "</table>\n</div></li>\n"
+        print buffer
+        buffer = ""
+        in_table = 0
+    }
+}
+
 {
     # 處理標題
     if ($0 ~ /^#{1,6} /) {
-        if (in_table) {
-            buffer = buffer "</table>\n</div>\n"
-            in_table = 0
-            print buffer
-            buffer = ""
-        }
+        flush_table()
         if (in_list) {
             print "</" list_type ">"
             in_list = 0
@@ -113,16 +118,8 @@ function process_table_row(line) {
         indent = match($0, /[^ ]/)
         current_level = int((indent - 1) / 2)
         
-        # 如果正在處理表格，先完成並輸出
-        if (in_table && buffer != "") {
-            buffer = buffer "</table>\n</div>\n"
-            in_table = 0
-            print buffer
-            buffer = ""
-        }
-        
-        # 處理列表層級
         if (!in_list || current_level > list_level) {
+            flush_table()
             if ($0 ~ /[0-9]+\. /) {
                 print "<ol>"
                 list_type = "ol"
@@ -141,23 +138,19 @@ function process_table_row(line) {
             gsub(/^[[:space:]]*[-*] /, "", content)
         }
         
-        # 移除列表標記後，檢查是否包含表格
         if (content ~ /^\|/) {
-            print "<li>"
             process_table_row(content)
+        } else if (content ~ /:$/) {
+            print "<li>" content
+            expect_table = 1
         } else {
-            if (content ~ /:$/) {
-                print "<li>" content
-            } else {
-                print "<li>" content "</li>"
-            }
+            print "<li>" content "</li>"
         }
         next
     }
     
     # 處理表格行
     if ($0 ~ /^[[:space:]]*\|/) {
-        # 移除開頭的空白
         gsub(/^[[:space:]]*/, "")
         process_table_row($0)
         next
@@ -165,22 +158,17 @@ function process_table_row(line) {
     
     # 非表格行，結束當前表格
     if (in_table) {
-        buffer = buffer "</table>\n</div>\n"
-        in_table = 0
-        if (in_list) {
-            print buffer "</li>"
-        } else {
-            print buffer
-        }
-        buffer = ""
+        flush_table()
     }
     
     # 處理空行
     if ($0 ~ /^[[:space:]]*$/) {
         if (in_list) {
-            print "</" list_type ">"
-            in_list = 0
-            list_level = 0
+            if (!in_table) {
+                print "</" list_type ">"
+                in_list = 0
+                list_level = 0
+            }
         }
     }
     
@@ -191,14 +179,7 @@ function process_table_row(line) {
 }
 
 END {
-    if (in_table) {
-        buffer = buffer "</table>\n</div>\n"
-        if (in_list) {
-            print buffer "</li>"
-        } else {
-            print buffer
-        }
-    }
+    flush_table()
     if (in_list) {
         print "</" list_type ">"
     }
@@ -207,4 +188,4 @@ END {
 }
 ' "$INPUT_FILE" > "$OUTPUT_FILE"
 
-echo "處理完成。輸出檔案為: $OUTPUT_FILE
+echo "處理完成。輸出檔案為: $OUTPUT_FILE"
