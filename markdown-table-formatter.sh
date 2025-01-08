@@ -34,154 +34,125 @@ BEGIN {
     print "</style>"
     print "</head>"
     print "<body>"
-    table_data = ""
-    in_table = 0
-    in_header = 0
-    in_list = 0
-    list_level = 0
-    list_type = ""
-    buffer = ""
-    in_list_item = 0
-    expect_table = 0
-}
-
-function process_table_row(line) {
-    if (!in_table) {
-        buffer = (expect_table ? "" : "</li>") "<li><div class=\"table-container\">\n<table>\n"
-        in_table = 1
-        in_header = 1
-        expect_table = 0
-    }
-
-    gsub(/^ *\| *| *\| *$/, "", line)
-    if (line ~ /^[-:|]+$/) {
-        in_header = 0
-        return
-    }
-
-    n = split(line, cells, /\|/)
-    buffer = buffer "<tr>\n"
     
-    for (i = 1; i <= n; i++) {
-        cell = cells[i]
-        gsub(/^ +| +$/, "", cell)
-        
-        if (in_header) {
-            buffer = buffer "  <th>" cell "</th>\n"
-        } else {
-            if (cell ~ /[•-]/) {
-                buffer = buffer "  <td><ul>\n"
-                split(cell, items, /[•]/)
-                for (j in items) {
-                    if (items[j] != "") {
-                        gsub(/^ +| +$/, "", items[j])
-                        if (items[j] ~ /^-/) {
-                            gsub(/^- */, "", items[j])
-                        }
-                        buffer = buffer "    <li>" items[j] "</li>\n"
-                    }
-                }
-                buffer = buffer "  </ul></td>\n"
-            } else {
-                buffer = buffer "  <td>" cell "</td>\n"
-            }
-        }
-    }
-    buffer = buffer "</tr>\n"
+    base_indent = -1
+    current_list = ""
+    current_item = ""
+    in_table = 0
+    table_content = ""
 }
 
-function flush_table() {
-    if (in_table) {
-        buffer = buffer "</table>\n</div></li>\n"
-        print buffer
-        buffer = ""
-        in_table = 0
+function get_indent(line) {
+    match(line, /[^ ]/)
+    return RSTART - 1
+}
+
+function flush_list_item() {
+    if (current_item) {
+        if (table_content) {
+            print current_item table_content "</li>"
+            table_content = ""
+        } else {
+            print current_item "</li>"
+        }
+        current_item = ""
     }
 }
 
 {
-    # 處理標題
-    if ($0 ~ /^#{1,6} /) {
-        flush_table()
-        if (in_list) {
-            print "</" list_type ">"
-            in_list = 0
-        }
-        level = match($0, /#{1,6}/)
-        title = substr($0, RLENGTH + 2)
-        print "<h" RLENGTH ">" title "</h" RLENGTH ">"
-        next
-    }
-
-    # 處理列表開始
-    if ($0 ~ /^[[:space:]]*[0-9]+\. / || $0 ~ /^[[:space:]]*[-*] /) {
-        indent = match($0, /[^ ]/)
-        current_level = int((indent - 1) / 2)
-        
-        if (!in_list || current_level > list_level) {
-            flush_table()
-            if ($0 ~ /[0-9]+\. /) {
-                print "<ol>"
-                list_type = "ol"
-            } else {
-                print "<ul>"
-                list_type = "ul"
-            }
-            list_level = current_level
-            in_list = 1
-        }
-        
-        content = $0
-        if ($0 ~ /[0-9]+\. /) {
-            gsub(/^[[:space:]]*[0-9]+\. /, "", content)
-        } else {
-            gsub(/^[[:space:]]*[-*] /, "", content)
-        }
-        
-        if (content ~ /^\|/) {
-            process_table_row(content)
-        } else if (content ~ /:$/) {
-            print "<li>" content
-            expect_table = 1
-        } else {
-            print "<li>" content "</li>"
-        }
-        next
+    indent = get_indent($0)
+    content = $0
+    gsub(/^[[:space:]]+/, "", content)
+    
+    # 設置基準縮進
+    if (base_indent == -1 && content ~ /^[-*]/) {
+        base_indent = indent
     }
     
+    # 處理列表項
+    if (content ~ /^[-*]/) {
+        # 開始新列表
+        if (!current_list) {
+            print "<ul>"
+            current_list = "ul"
+        }
+        
+        # 處理前一個列表項
+        flush_list_item()
+        
+        # 處理新列表項
+        sub(/^[-*][[:space:]]*/, "", content)
+        if (content ~ /:$/) {
+            current_item = "<li>" content
+            in_table = 0
+        } else {
+            current_item = "<li>" content
+        }
+    }
     # 處理表格行
-    if ($0 ~ /^[[:space:]]*\|/) {
-        gsub(/^[[:space:]]*/, "")
-        process_table_row($0)
-        next
-    }
-    
-    # 非表格行，結束當前表格
-    if (in_table) {
-        flush_table()
-    }
-    
-    # 處理空行
-    if ($0 ~ /^[[:space:]]*$/) {
-        if (in_list) {
-            if (!in_table) {
-                print "</" list_type ">"
-                in_list = 0
-                list_level = 0
+    else if (content ~ /^\|/ && indent > base_indent) {
+        if (!table_content && current_item) {
+            table_content = "<div class=\"table-container\">\n<table>\n"
+            in_table = 1
+        }
+        
+        if (content ~ /^[|[:space:]-:]+$/) {
+            next
+        }
+        
+        # 移除首尾的管道符號
+        gsub(/^ *\| *| *\| *$/, "", content)
+        
+        # 處理表格行
+        n = split(content, cells, /\|/)
+        table_content = table_content "<tr>\n"
+        
+        for (i = 1; i <= n; i++) {
+            cell = cells[i]
+            gsub(/^ +| +$/, "", cell)
+            
+            if (!in_table || table_content ~ /<table>\n$/) {
+                table_content = table_content "  <th>" cell "</th>\n"
+            } else {
+                if (cell ~ /[•]/) {
+                    table_content = table_content "  <td><ul>\n"
+                    split(cell, items, /[•]/)
+                    for (j in items) {
+                        item = items[j]
+                        gsub(/^ +| +$/, "", item)
+                        if (item != "") {
+                            table_content = table_content "    <li>" item "</li>\n"
+                        }
+                    }
+                    table_content = table_content "  </ul></td>\n"
+                } else {
+                    table_content = table_content "  <td>" cell "</td>\n"
+                }
             }
         }
+        table_content = table_content "</tr>\n"
+        if (!in_table) in_table = 1
     }
-    
-    # 處理其他內容
-    if ($0 !~ /^[[:space:]]*$/ && !in_table) {
-        print
+    # 處理空行
+    else if (content ~ /^[[:space:]]*$/) {
+        if (table_content) {
+            table_content = table_content "</table>\n</div>"
+        }
+        flush_list_item()
+        if (current_list) {
+            print "</" current_list ">"
+            current_list = ""
+        }
     }
 }
 
 END {
-    flush_table()
-    if (in_list) {
-        print "</" list_type ">"
+    if (table_content) {
+        table_content = table_content "</table>\n</div>"
+    }
+    flush_list_item()
+    if (current_list) {
+        print "</" current_list ">"
     }
     print "</body>"
     print "</html>"
