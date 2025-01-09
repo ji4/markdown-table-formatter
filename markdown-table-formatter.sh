@@ -51,7 +51,20 @@ function get_indent(line) {
     return RSTART - 1
 }
 
-function process_table_row(line,    cells, i, n, cell, items, j) {
+function process_bullet_list(cell,    items, j, n, list) {
+    list = "  <td><ul>\n"
+    n = split(cell, items, /[•]/)
+    for (j = 1; j <= n; j++) {
+        gsub(/^ +| +$/, "", items[j])
+        if (items[j] != "") {
+            list = list "    <li>" items[j] "</li>\n"
+        }
+    }
+    list = list "  </ul></td>\n"
+    return list
+}
+
+function process_table_row(line,    cells, i, n, cell) {
     if (line ~ /^[\| :-]+$/) {
         is_first_table_row = 0
         return
@@ -72,21 +85,11 @@ function process_table_row(line,    cells, i, n, cell, items, j) {
         cell = cells[i]
         gsub(/^ +| +$/, "", cell)
         
-        # 使用 is_first_table_row 而不是 table_row_count 來決定是否為標題
         if (is_first_table_row) {
             table_content = table_content "  <th>" cell "</th>\n"
         } else {
             if (cell ~ /[•]/) {
-                table_content = table_content "  <td><ul>\n"
-                split(cell, items, /[•]/)
-                for (j in items) {
-                    item = items[j]
-                    gsub(/^ +| +$/, "", item)
-                    if (item != "") {
-                        table_content = table_content "    <li>" item (j < length(items) ? "<br><br>" : "") "</li>\n"
-                    }
-                }
-                table_content = table_content "  </ul></td>\n"
+                table_content = table_content process_bullet_list(cell)
             } else {
                 table_content = table_content "  <td>" cell "</td>\n"
             }
