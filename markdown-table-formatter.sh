@@ -10,7 +10,6 @@ if [ ! -f "$INPUT_FILE" ]; then
     exit 1
 fi
 
-# 主要處理
 awk '
 BEGIN {
     print "<!DOCTYPE html>"
@@ -35,15 +34,14 @@ BEGIN {
     print "</head>"
     print "<body>"
     
-    base_indent = -1
-    current_list = ""
-    current_item = ""
-    in_table = 0
-    table_content = ""
-    table_row_count = 0
-    is_first_table_row = 1
-    list_stack_type[0] = ""
     list_stack_depth = 0
+    in_table = 0
+    table_buffer = ""
+    prev_indent = -1
+    list_item_content = ""
+    in_list_item = 0
+    current_list_num = 0
+    in_summary = 0
 }
 
 function get_indent(line) {
@@ -64,75 +62,80 @@ function process_bullet_list(cell,    items, j, n, list) {
     return list
 }
 
-function process_table_row(line,    cells, i, n, cell) {
-    if (line ~ /^[\| :-]+$/) {
-        is_first_table_row = 0
-        return
-    }
-
-    if (!in_table) {
-        table_content = "<div class=\"table-container\">\n<table>\n"
-        in_table = 1
-        table_row_count = 0
-    }
-
-    gsub(/^ *\| *| *\| *$/, "", line)
-    n = split(line, cells, /\|/)
-    
-    table_content = table_content "<tr>\n"
-    
-    for (i = 1; i <= n; i++) {
-        cell = cells[i]
-        gsub(/^ +| +$/, "", cell)
-        
-        if (is_first_table_row) {
-            table_content = table_content "  <th>" cell "</th>\n"
-        } else {
-            if (cell ~ /[•]/) {
-                table_content = table_content process_bullet_list(cell)
-            } else {
-                table_content = table_content "  <td>" cell "</td>\n"
-            }
+function process_list_content() {
+    if (in_list_item) {
+        print list_item_content
+        if (table_buffer != "") {
+            print table_buffer
+            table_buffer = ""
         }
+        print "</li>"
+        in_list_item = 0
     }
-    
-    table_content = table_content "</tr>\n"
-    table_row_count++
-    is_first_table_row = 0
 }
 
-function start_list(type, indent) {
-    list_stack_type[list_stack_depth] = type
-    list_stack_indent[list_stack_depth] = indent
-    list_stack_depth++
-    return "<" type ">"
-}
-
-function end_list(until_indent,    i, output) {
-    output = ""
+function close_lists_until(target_indent,    i) {
     for (i = list_stack_depth - 1; i >= 0; i--) {
-        if (list_stack_indent[i] > until_indent) {
-            output = output "</" list_stack_type[i] ">\n"
+        if (list_indent[i] >= target_indent) {
+            process_list_content()
+            printf "</%s>\n", list_container[i]
             list_stack_depth--
+        } else {
+            break
         }
     }
-    return output
 }
 
-function flush_list_item() {
-    if (current_item) {
-        if (table_content) {
-            table_content = table_content "</table>\n</div>"
-            print current_item table_content "</li>"
-            table_content = ""
-            in_table = 0
-            table_row_count = 0
-            is_first_table_row = 1
-        } else {
-            print current_item "</li>"
-        }
-        current_item = ""
+function detect_list_type(content) {
+    if (content ~ /^[0-9]+\./) {
+        return "ol"
+    } else if (content ~ /^[-*]/) {
+        return "ul"
     }
+    return ""
+}
+
+function handle_list(indent, content, list_marker) {
+    # 檢查是否在總結部分的特殊處理
+    if ($0 ~ /總結：選品策略三步驟/) {
+        in_summary = 1
+    }
+    
+    # 如果在總結部分，保持相同的縮排級別
+    if (in_summary && list_marker == "ol") {
+        indent = 0
+    }
+    
+    # 如果縮排減少，關閉較深的列表
+    if (indent < prev_indent) {
+        close_lists_until(indent)
+    }
+    
+    # 開始新列表或繼續現有列表
+    if (list_stack_depth == 0 || indent > list_indent[list_stack_depth - 1]) {
+        process_list_content()
+        list_container[list_stack_depth] = list_marker
+        list_indent[list_stack_depth] = indent
+        printf "<%s>\n", list_marker
+        list_stack_depth++
+    } else if (indent == list_indent[list_stack_depth - 1] && 
+               list_marker != list_container[list_stack_depth - 1]) {
+        # 如果在同一層級但列表類型不同
+        process_list_content()
+        close_lists_until(indent)
+        list_container[list_stack_depth] = list_marker
+        list_indent[list_stack_depth] = indent
+        printf "<%s>\n", list_marker
+        list_stack_depth++
+    }
+    
+    process_list_content()
+    
+    # 移除列表標記
+    sub(/^[0-9]+\. |^[-*] /, "", content)
+    printf "<li>"
+    in_list_item = 1
+    list_item_content = content
 }
 
 {
@@ -142,61 +145,65 @@ function flush_list_item() {
     
     # 處理標題
     if ($0 ~ /^#{1,6} /) {
-        flush_list_item()
-        if (list_stack_depth > 0) {
-            printf "%s", end_list(-1)
-            list_stack_depth = 0
-        }
+        process_list_content()
+        close_lists_until(0)
+        in_summary = 0  # 重置總結標記
         level = match($0, /#{1,6}/)
         title = substr($0, RLENGTH + 2)
         print "<h" RLENGTH ">" title "</h" RLENGTH ">"
-        next
     }
-    
     # 處理列表
-    if (content ~ /^[0-9]+\. / || content ~ /^[-*] /) {
-        is_numbered = (content ~ /^[0-9]+\. /)
-        list_type = is_numbered ? "ol" : "ul"
-        
-        # 檢查是否需要結束之前的列表
-        if (list_stack_depth > 0 && indent <= list_stack_indent[list_stack_depth - 1]) {
-            printf "%s", end_list(indent)
-        }
-        
-        # 開始新列表（如果需要）
-        if (list_stack_depth == 0 || indent > list_stack_indent[list_stack_depth - 1]) {
-            print start_list(list_type, indent)
-        }
-        
-        # 處理列表項
-        if (is_numbered) {
-            sub(/^[0-9]+\. /, "", content)
-        } else {
-            sub(/^[-*] /, "", content)
-        }
-        
-        flush_list_item()
-        current_item = "<li>" content
+    else if ((type_marker = detect_list_type(content)) != "") {
+        handle_list(indent, content, type_marker)
     }
-    # 處理表格行
-    else if (content ~ /^\|/ && indent > base_indent) {
-        process_table_row(content)
+    # 處理表格
+    else if (content ~ /^\|/) {
+        if (!in_table) {
+            table_buffer = table_buffer "<div class=\"table-container\">\n<table>\n"
+            in_table = 1
+        }
+        
+        if (!(content ~ /^[\| :-]+$/)) {
+            gsub(/^ *\| *| *\| *$/, "", content)
+            split(content, cells, /\|/)
+            
+            table_buffer = table_buffer "<tr>\n"
+            for (i = 1; i <= length(cells); i++) {
+                cell = cells[i]
+                gsub(/^ +| +$/, "", cell)
+                
+                if (cell ~ /[•]/) {
+                    table_buffer = table_buffer process_bullet_list(cell)
+                } else {
+                    table_buffer = table_buffer "  <td>" cell "</td>\n"
+                }
+            }
+            table_buffer = table_buffer "</tr>\n"
+        }
     }
     # 處理空行
     else if (content ~ /^[[:space:]]*$/) {
-        flush_list_item()
-        if (list_stack_depth > 0) {
-            printf "%s", end_list(-1)
-            list_stack_depth = 0
+        if (in_table) {
+            table_buffer = table_buffer "</table>\n</div>\n"
+            if (in_list_item) {
+                list_item_content = list_item_content table_buffer
+                table_buffer = ""
+            } else {
+                print table_buffer
+            }
+            in_table = 0
         }
+    } else if (in_list_item) {
+        # 處理列表項的額外內容
+        list_item_content = list_item_content "\n" content
     }
+    
+    prev_indent = indent
 }
 
 END {
-    flush_list_item()
-    if (list_stack_depth > 0) {
-        printf "%s", end_list(-1)
-    }
+    process_list_content()
+    close_lists_until(0)
     print "</body>"
     print "</html>"
 }
