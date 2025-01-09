@@ -41,7 +41,6 @@ BEGIN {
     list_item_content = ""
     in_list_item = 0
     current_list_num = 0
-    in_summary = 0
 }
 
 function get_indent(line) {
@@ -80,8 +79,6 @@ function close_lists_until(target_indent,    i) {
             process_list_content()
             printf "</%s>\n", list_container[i]
             list_stack_depth--
-        } else {
-            break
         }
     }
 }
@@ -96,16 +93,6 @@ function detect_list_type(content) {
 }
 
 function handle_list(indent, content, list_marker) {
-    # 檢查是否在總結部分的特殊處理
-    if ($0 ~ /總結：選品策略三步驟/) {
-        in_summary = 1
-    }
-    
-    # 如果在總結部分，保持相同的縮排級別
-    if (in_summary && list_marker == "ol") {
-        indent = 0
-    }
-    
     # 如果縮排減少，關閉較深的列表
     if (indent < prev_indent) {
         close_lists_until(indent)
@@ -114,15 +101,6 @@ function handle_list(indent, content, list_marker) {
     # 開始新列表或繼續現有列表
     if (list_stack_depth == 0 || indent > list_indent[list_stack_depth - 1]) {
         process_list_content()
-        list_container[list_stack_depth] = list_marker
-        list_indent[list_stack_depth] = indent
-        printf "<%s>\n", list_marker
-        list_stack_depth++
-    } else if (indent == list_indent[list_stack_depth - 1] && 
-               list_marker != list_container[list_stack_depth - 1]) {
-        # 如果在同一層級但列表類型不同
-        process_list_content()
-        close_lists_until(indent)
         list_container[list_stack_depth] = list_marker
         list_indent[list_stack_depth] = indent
         printf "<%s>\n", list_marker
@@ -143,11 +121,18 @@ function handle_list(indent, content, list_marker) {
     content = $0
     gsub(/^[[:space:]]+/, "", content)
     
+    # 檢查是否為註釋行
+    if ($0 ~ /這樣已經完整整理完所有內容/) {
+        process_list_content()
+        close_lists_until(0)
+        print "<p>" content "</p>"
+        next
+    }
+    
     # 處理標題
     if ($0 ~ /^#{1,6} /) {
         process_list_content()
         close_lists_until(0)
-        in_summary = 0  # 重置總結標記
         level = match($0, /#{1,6}/)
         title = substr($0, RLENGTH + 2)
         print "<h" RLENGTH ">" title "</h" RLENGTH ">"
