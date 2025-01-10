@@ -30,7 +30,6 @@ BEGIN {
     print "h4 { font-size: 1em; margin: 1.12em 0; }"
     print "h5 { font-size: .83em; margin: 1.5em 0; }"
     print "h6 { font-size: .75em; margin: 1.67em 0; }"
-    print ".content { margin: 1em 0; line-height: 1.5; }"  # 新增段落樣式
     print "</style>"
     print "</head>"
     print "<body>"
@@ -42,9 +41,7 @@ BEGIN {
     list_item_content = ""
     in_list_item = 0
     current_list_num = 0
-    processed_tables = ""
-    in_conclusion = 0  # 新增：追蹤是否在結論段落中
-    conclusion_content = ""  # 新增：儲存結論內容
+    processed_tables = ""  # 新增：用於追蹤已處理的表格
 }
 
 function get_indent(line) {
@@ -66,100 +63,135 @@ function process_bullet_list(cell,    items, j, n, list) {
 }
 
 function is_duplicate_table(table_content) {
+    # 檢查是否為重複表格
     return (index(processed_tables, table_content) > 0)
 }
 
 function add_to_processed_tables(table_content) {
+    # 將表格內容加入已處理清單
     processed_tables = processed_tables "\n" table_content
 }
 
-{
-    if ($0 ~ /^## 結論$/) {
-        in_conclusion = 1
-        print "<h2>結論</h2>"
+function process_list_content() {
+    if (in_list_item) {
+        if (list_item_content != "") {
+            print list_item_content
+        }
+        if (table_buffer != "" && !is_duplicate_table(table_buffer)) {
+            print table_buffer
+            add_to_processed_tables(table_buffer)
+        }
+        table_buffer = ""
+        print "</li>"
+        in_list_item = 0
+        list_item_content = ""
     }
-    else if (in_conclusion && $0 !~ /^$/) {
-        # 收集結論段落的內容
-        if (conclusion_content == "") {
-            conclusion_content = $0
-        } else {
-            conclusion_content = conclusion_content "<br>" $0
-        }
-    }
-    else if (in_conclusion && $0 ~ /^$/) {
-        # 當遇到空行時，輸出收集到的結論內容
-        if (conclusion_content != "") {
-            print "<div class=\"content\">" conclusion_content "</div>"
-            conclusion_content = ""
-        }
-        in_conclusion = 0
-    }
-    else {
-        # 原有的處理邏輯
-        indent = get_indent($0)
-        content = $0
-        gsub(/^[[:space:]]+/, "", content)
-        
-        if ($0 ~ /^#{1,6} /) {
-            if (in_table) {
-                table_buffer = table_buffer "</table>\n</div>\n"
-                if (!is_duplicate_table(table_buffer)) {
-                    print table_buffer
-                    add_to_processed_tables(table_buffer)
-                }
-                table_buffer = ""
-                in_table = 0
-            }
-            level = match($0, /#{1,6}/)
-            title = substr($0, RLENGTH + 2)
-            print "<h" RLENGTH ">" title "</h" RLENGTH ">"
-        }
-        else if ($0 ~ /^\|/) {
-            if (!in_table) {
-                table_buffer = table_buffer "<div class=\"table-container\">\n<table>\n"
-                in_table = 1
-            }
-            
-            if (!($0 ~ /^[\| :-]+$/)) {
-                gsub(/^ *\| *| *\| *$/, "", content)
-                split(content, cells, /\|/)
-                
-                table_buffer = table_buffer "<tr>\n"
-                for (i = 1; i <= length(cells); i++) {
-                    cell = cells[i]
-                    gsub(/^ +| +$/, "", cell)
-                    
-                    if (cell ~ /[•]/) {
-                        table_buffer = table_buffer process_bullet_list(cell)
-                    } else {
-                        table_buffer = table_buffer "  <td>" cell "</td>\n"
-                    }
-                }
-                table_buffer = table_buffer "</tr>\n"
-            }
-        }
-        else if ($0 ~ /^[[:space:]]*$/) {
-            if (in_table) {
-                table_buffer = table_buffer "</table>\n</div>\n"
-                if (!is_duplicate_table(table_buffer)) {
-                    print table_buffer
-                    add_to_processed_tables(table_buffer)
-                }
-                table_buffer = ""
-                in_table = 0
-            }
-        }
-        else if ($0 !~ /^[[:space:]]*$/) {
-            print "<div class=\"content\">" $0 "</div>"
+}
+
+function close_lists_until(target_indent,    i) {
+    for (i = list_stack_depth - 1; i >= 0; i--) {
+        if (list_indent[i] >= target_indent) {
+            process_list_content()
+            printf "</%s>\n", list_container[i]
+            list_stack_depth--
         }
     }
 }
 
-END {
-    # 確保最後的結論內容被輸出
-    if (conclusion_content != "") {
-        print "<div class=\"content\">" conclusion_content "</div>"
+function detect_list_type(content) {
+    if (content ~ /^[0-9]+\./) {
+        return "ol"
+    } else if (content ~ /^[-*]/) {
+        return "ul"
     }
+    return ""
+}
+
+function handle_list(indent, content, list_marker) {
+    if (indent < prev_indent) {
+        close_lists_until(indent)
+    }
+    
+    if (list_stack_depth == 0 || indent > list_indent[list_stack_depth - 1]) {
+        process_list_content()
+        list_container[list_stack_depth] = list_marker
+        list_indent[list_stack_depth] = indent
+        printf "<%s>\n", list_marker
+        list_stack_depth++
+    }
+    
+    process_list_content()
+    
+    sub(/^[0-9]+\. |^[-*] /, "", content)
+    printf "<li>"
+    in_list_item = 1
+    list_item_content = content
+}
+
+{
+    indent = get_indent($0)
+    content = $0
+    gsub(/^[[:space:]]+/, "", content)
+    
+    if ($0 ~ /^#{1,6} /) {
+        process_list_content()
+        close_lists_until(0)
+        level = match($0, /#{1,6}/)
+        title = substr($0, RLENGTH + 2)
+        print "<h" RLENGTH ">" title "</h" RLENGTH ">"
+    }
+    else if ((type_marker = detect_list_type(content)) != "") {
+        handle_list(indent, content, type_marker)
+    }
+    else if (content ~ /^\|/) {
+        if (!in_table) {
+            table_buffer = table_buffer "<div class=\"table-container\">\n<table>\n"
+            in_table = 1
+        }
+        
+        if (!(content ~ /^[\| :-]+$/)) {
+            gsub(/^ *\| *| *\| *$/, "", content)
+            split(content, cells, /\|/)
+            
+            table_buffer = table_buffer "<tr>\n"
+            for (i = 1; i <= length(cells); i++) {
+                cell = cells[i]
+                gsub(/^ +| +$/, "", cell)
+                
+                if (cell ~ /[•]/) {
+                    table_buffer = table_buffer process_bullet_list(cell)
+                } else {
+                    table_buffer = table_buffer "  <td>" cell "</td>\n"
+                }
+            }
+            table_buffer = table_buffer "</tr>\n"
+        }
+    }
+    else if (content ~ /^[[:space:]]*$/) {
+        if (in_table) {
+            table_buffer = table_buffer "</table>\n</div>\n"
+            if (!is_duplicate_table(table_buffer)) {
+                if (in_list_item) {
+                    list_item_content = list_item_content "\n" table_buffer
+                } else {
+                    print table_buffer
+                    add_to_processed_tables(table_buffer)
+                }
+            }
+            table_buffer = ""
+            in_table = 0
+        }
+    }
+    else if (in_list_item) {
+        list_item_content = list_item_content "\n" content
+    }
+    
+    prev_indent = indent
+}
+
+END {
+    process_list_content()
+    close_lists_until(0)
     if (in_table) {
         table_buffer = table_buffer "</table>\n</div>\n"
         if (!is_duplicate_table(table_buffer)) {
@@ -168,6 +200,7 @@ END {
     }
     print "</body>"
     print "</html>"
-}' "$INPUT_FILE" > "$OUTPUT_FILE"
+}
+' "$INPUT_FILE" > "$OUTPUT_FILE"
 
 echo "處理完成。輸出檔案為: $OUTPUT_FILE"
