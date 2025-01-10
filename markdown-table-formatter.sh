@@ -41,7 +41,6 @@ BEGIN {
     list_item_content = ""
     in_list_item = 0
     current_list_num = 0
-    processed_tables = ""  # 新增：用於追蹤已處理的表格
 }
 
 function get_indent(line) {
@@ -62,29 +61,15 @@ function process_bullet_list(cell,    items, j, n, list) {
     return list
 }
 
-function is_duplicate_table(table_content) {
-    # 檢查是否為重複表格
-    return (index(processed_tables, table_content) > 0)
-}
-
-function add_to_processed_tables(table_content) {
-    # 將表格內容加入已處理清單
-    processed_tables = processed_tables "\n" table_content
-}
-
 function process_list_content() {
     if (in_list_item) {
-        if (list_item_content != "") {
-            print list_item_content
-        }
-        if (table_buffer != "" && !is_duplicate_table(table_buffer)) {
+        print list_item_content
+        if (table_buffer != "") {
             print table_buffer
-            add_to_processed_tables(table_buffer)
+            table_buffer = ""
         }
-        table_buffer = ""
         print "</li>"
         in_list_item = 0
-        list_item_content = ""
     }
 }
 
@@ -108,10 +93,12 @@ function detect_list_type(content) {
 }
 
 function handle_list(indent, content, list_marker) {
+    # 如果縮排減少，關閉較深的列表
     if (indent < prev_indent) {
         close_lists_until(indent)
     }
     
+    # 開始新列表或繼續現有列表
     if (list_stack_depth == 0 || indent > list_indent[list_stack_depth - 1]) {
         process_list_content()
         list_container[list_stack_depth] = list_marker
@@ -122,6 +109,7 @@ function handle_list(indent, content, list_marker) {
     
     process_list_content()
     
+    # 移除列表標記
     sub(/^[0-9]+\. |^[-*] /, "", content)
     printf "<li>"
     in_list_item = 1
@@ -133,6 +121,15 @@ function handle_list(indent, content, list_marker) {
     content = $0
     gsub(/^[[:space:]]+/, "", content)
     
+    # 檢查是否為註釋行
+    if ($0 ~ /這樣已經完整整理完所有內容/) {
+        process_list_content()
+        close_lists_until(0)
+        print "<p>" content "</p>"
+        next
+    }
+    
+    # 處理標題
     if ($0 ~ /^#{1,6} /) {
         process_list_content()
         close_lists_until(0)
@@ -140,9 +137,11 @@ function handle_list(indent, content, list_marker) {
         title = substr($0, RLENGTH + 2)
         print "<h" RLENGTH ">" title "</h" RLENGTH ">"
     }
+    # 處理列表
     else if ((type_marker = detect_list_type(content)) != "") {
         handle_list(indent, content, type_marker)
     }
+    # 處理表格
     else if (content ~ /^\|/) {
         if (!in_table) {
             table_buffer = table_buffer "<div class=\"table-container\">\n<table>\n"
@@ -167,22 +166,20 @@ function handle_list(indent, content, list_marker) {
             table_buffer = table_buffer "</tr>\n"
         }
     }
+    # 處理空行
     else if (content ~ /^[[:space:]]*$/) {
         if (in_table) {
             table_buffer = table_buffer "</table>\n</div>\n"
-            if (!is_duplicate_table(table_buffer)) {
-                if (in_list_item) {
-                    list_item_content = list_item_content "\n" table_buffer
-                } else {
-                    print table_buffer
-                    add_to_processed_tables(table_buffer)
-                }
+            if (in_list_item) {
+                list_item_content = list_item_content table_buffer
+                table_buffer = ""
+            } else {
+                print table_buffer
             }
-            table_buffer = ""
             in_table = 0
         }
-    }
-    else if (in_list_item) {
+    } else if (in_list_item) {
+        # 處理列表項的額外內容
         list_item_content = list_item_content "\n" content
     }
     
@@ -192,12 +189,6 @@ function handle_list(indent, content, list_marker) {
 END {
     process_list_content()
     close_lists_until(0)
-    if (in_table) {
-        table_buffer = table_buffer "</table>\n</div>\n"
-        if (!is_duplicate_table(table_buffer)) {
-            print table_buffer
-        }
-    }
     print "</body>"
     print "</html>"
 }
