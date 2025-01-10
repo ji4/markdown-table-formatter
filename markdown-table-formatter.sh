@@ -1,206 +1,226 @@
-#!/bin/bash
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+use open qw(:std :utf8);
 
 # 設定檔案名稱
-INPUT_FILE="table.md"
-OUTPUT_FILE="${INPUT_FILE%.*}_html.html"
+my $input_file = "table.md";
+my $output_file = $input_file;
+$output_file =~ s/\.md$/_html.html/;
 
 # 檢查輸入檔案是否存在
-if [ ! -f "$INPUT_FILE" ]; then
-    echo "錯誤: 找不到輸入檔案 '$INPUT_FILE'"
-    exit 1
-fi
-
-awk '
-BEGIN {
-    print "<!DOCTYPE html>"
-    print "<html>"
-    print "<head>"
-    print "<style>"
-    print "table { border-collapse: collapse; width: 100%; margin: 20px 0; }"
-    print "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }"
-    print "th { background-color: #f2f2f2; }"
-    print "ul, ol { margin: 0 0 1em 0; padding-left: 20px; }"
-    print "li { margin: 5px 0; }"
-    print "li > ul, li > ol { margin: 5px 0; }"
-    print ".nested-content { margin-left: 20px; }"
-    print ".table-container { margin: 1em 0; clear: both; }"
-    print "h1 { font-size: 2em; margin: 0.67em 0; }"
-    print "h2 { font-size: 1.5em; margin: 0.75em 0; }"
-    print "h3 { font-size: 1.17em; margin: 0.83em 0; }"
-    print "h4 { font-size: 1em; margin: 1.12em 0; }"
-    print "h5 { font-size: .83em; margin: 1.5em 0; }"
-    print "h6 { font-size: .75em; margin: 1.67em 0; }"
-    print "</style>"
-    print "</head>"
-    print "<body>"
-    
-    list_stack_depth = 0
-    in_table = 0
-    table_buffer = ""
-    prev_indent = -1
-    list_item_content = ""
-    in_list_item = 0
-    current_list_num = 0
-    processed_tables = ""  # 新增：用於追蹤已處理的表格
+unless (-f $input_file) {
+    die "錯誤: 找不到輸入檔案 '$input_file'\n";
 }
 
-function get_indent(line) {
-    match(line, /[^ ]/)
-    return RSTART - 1
+# 初始化變數
+my $in_table = 0;
+my $table_buffer = "";
+my $prev_indent = -1;
+my $list_item_content = "";
+my $in_list_item = 0;
+my @list_stack = ();
+my %processed_tables;
+
+# 打開檔案
+open(my $in_fh, '<:utf8', $input_file) or die "無法開啟輸入檔案: $!";
+open(my $out_fh, '>:utf8', $output_file) or die "無法開啟輸出檔案: $!";
+
+# 輸出 HTML 頭部
+print $out_fh <<'HTML_HEAD';
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+ul, ol { margin: 0 0 1em 0; padding-left: 20px; }
+li { margin: 5px 0; }
+li > ul, li > ol { margin: 5px 0; }
+.nested-content { margin-left: 20px; }
+.table-container { margin: 1em 0; clear: both; }
+h1 { font-size: 2em; margin: 0.67em 0; }
+h2 { font-size: 1.5em; margin: 0.75em 0; }
+h3 { font-size: 1.17em; margin: 0.83em 0; }
+h4 { font-size: 1em; margin: 1.12em 0; }
+h5 { font-size: .83em; margin: 1.5em 0; }
+h6 { font-size: .75em; margin: 1.67em 0; }
+</style>
+</head>
+<body>
+HTML_HEAD
+
+sub get_indent {
+    my ($line) = @_;
+    return 0 unless $line =~ /\S/;
+    $line =~ /^(\s*)/;
+    return length($1);
 }
 
-function process_bullet_list(cell,    items, j, n, list) {
-    list = "  <td><ul>\n"
-    n = split(cell, items, /[•]/)
-    for (j = 1; j <= n; j++) {
-        gsub(/^ +| +$/, "", items[j])
-        if (items[j] != "") {
-            list = list "    <li>" items[j] "</li>\n"
+sub process_cell_content {
+    my ($cell) = @_;
+    if ($cell =~ /^[[:space:]]*-/) {
+        # 將 <br>- 轉換為換行符加減號
+        $cell =~ s/<br>-/\n-/g;
+        my @items = split(/\n\s*-\s*/, $cell);
+        my $result = "<ul>\n";
+        foreach my $item (@items) {
+            $item =~ s/^\s*-\s*//;
+            $item =~ s/^\s+|\s+$//g;
+            $result .= "    <li>$item</li>\n" if $item ne '';
         }
+        $result .= "</ul>";
+        return $result;
     }
-    list = list "  </ul></td>\n"
-    return list
+    return $cell;
 }
 
-function is_duplicate_table(table_content) {
-    # 檢查是否為重複表格
-    return (index(processed_tables, table_content) > 0)
-}
-
-function add_to_processed_tables(table_content) {
-    # 將表格內容加入已處理清單
-    processed_tables = processed_tables "\n" table_content
-}
-
-function process_list_content() {
-    if (in_list_item) {
-        if (list_item_content != "") {
-            print list_item_content
+sub process_table {
+    my @rows = @_;
+    my $table_html = "<div class=\"table-container\">\n<table>\n";
+    my $is_separator = 0;
+    
+    foreach my $row (@rows) {
+        next if $row =~ /^\s*$/;  # 跳過空行
+        next if $row =~ /^[|\s:-]+$/;  # 跳過分隔線
+        
+        $row =~ s/^\s*\|\s*|\s*\|\s*$//g;  # 移除首尾的 |
+        my @cells = split /\s*\|\s*/, $row;
+        
+        $table_html .= "<tr>\n";
+        foreach my $cell (@cells) {
+            $cell =~ s/^\s+|\s+$//g;  # 移除首尾空白
+            my $cell_content = $cell;
+            
+            if ($cell =~ /[•]/ || $cell =~ /^[[:space:]]*-/) {
+                $cell_content = process_cell_content($cell);
+            }
+            
+            $table_html .= "  <td>$cell_content</td>\n";
         }
-        if (table_buffer != "" && !is_duplicate_table(table_buffer)) {
-            print table_buffer
-            add_to_processed_tables(table_buffer)
-        }
-        table_buffer = ""
-        print "</li>"
-        in_list_item = 0
-        list_item_content = ""
+        $table_html .= "</tr>\n";
+    }
+    $table_html .= "</table>\n</div>\n";
+    return $table_html;
+}
+
+sub close_lists_until {
+    my ($target_indent) = @_;
+    while (@list_stack && $list_stack[-1]->{indent} >= $target_indent) {
+        my $last = pop @list_stack;
+        print $out_fh "</li>\n" if $in_list_item;
+        print $out_fh "</$last->{type}>\n";
+        $in_list_item = 0;
     }
 }
 
-function close_lists_until(target_indent,    i) {
-    for (i = list_stack_depth - 1; i >= 0; i--) {
-        if (list_indent[i] >= target_indent) {
-            process_list_content()
-            printf "</%s>\n", list_container[i]
-            list_stack_depth--
-        }
-    }
-}
+# 讀取整個文件到內存
+my @lines = <$in_fh>;
+chomp @lines;
 
-function detect_list_type(content) {
-    if (content ~ /^[0-9]+\./) {
-        return "ol"
-    } else if (content ~ /^[-*]/) {
-        return "ul"
-    }
-    return ""
-}
+# 移除介紹性文本
+@lines = grep { 
+    !/^我會幫您將文字完整整理/ &&
+    !/^第一部分/ &&
+    !/^好的，我將繼續整理/ &&
+    !/^這樣已經完整整理/ &&
+    !/^需要我/ 
+} @lines;
 
-function handle_list(indent, content, list_marker) {
-    if (indent < prev_indent) {
-        close_lists_until(indent)
-    }
-    
-    if (list_stack_depth == 0 || indent > list_indent[list_stack_depth - 1]) {
-        process_list_content()
-        list_container[list_stack_depth] = list_marker
-        list_indent[list_stack_depth] = indent
-        printf "<%s>\n", list_marker
-        list_stack_depth++
-    }
-    
-    process_list_content()
-    
-    sub(/^[0-9]+\. |^[-*] /, "", content)
-    printf "<li>"
-    in_list_item = 1
-    list_item_content = content
-}
+my $i = 0;
+my $current_list_type = "";
 
-{
-    indent = get_indent($0)
-    content = $0
-    gsub(/^[[:space:]]+/, "", content)
+while ($i < @lines) {
+    my $line = $lines[$i];
+    my $indent = get_indent($line);
+    my $content = $line;
+    $content =~ s/^\s+//;
     
-    if ($0 ~ /^#{1,6} /) {
-        process_list_content()
-        close_lists_until(0)
-        level = match($0, /#{1,6}/)
-        title = substr($0, RLENGTH + 2)
-        print "<h" RLENGTH ">" title "</h" RLENGTH ">"
+    # 處理標題
+    if ($line =~ /^(#{1,6})\s+(.+)/) {
+        my $level = length($1);
+        my $title = $2;
+        close_lists_until(0) if @list_stack;
+        print $out_fh "<h$level>$title</h$level>\n";
     }
-    else if ((type_marker = detect_list_type(content)) != "") {
-        handle_list(indent, content, type_marker)
-    }
-    else if (content ~ /^\|/) {
-        if (!in_table) {
-            table_buffer = table_buffer "<div class=\"table-container\">\n<table>\n"
-            in_table = 1
+    # 檢測表格開始
+    elsif ($line =~ /^\s*\|/) {
+        my @table_lines;
+        my $j = $i;
+        
+        # 收集表格所有行
+        while ($j < @lines && ($lines[$j] =~ /^\s*\|/ || $lines[$j] =~ /^\s*$/)) {
+            push @table_lines, $lines[$j] unless $lines[$j] =~ /^\s*$/;
+            $j++;
         }
         
-        if (!(content ~ /^[\| :-]+$/)) {
-            gsub(/^ *\| *| *\| *$/, "", content)
-            split(content, cells, /\|/)
-            
-            table_buffer = table_buffer "<tr>\n"
-            for (i = 1; i <= length(cells); i++) {
-                cell = cells[i]
-                gsub(/^ +| +$/, "", cell)
-                
-                if (cell ~ /[•]/) {
-                    table_buffer = table_buffer process_bullet_list(cell)
-                } else {
-                    table_buffer = table_buffer "  <td>" cell "</td>\n"
-                }
-            }
-            table_buffer = table_buffer "</tr>\n"
+        # 輸出表格
+        if ($in_list_item) {
+            print $out_fh "$list_item_content\n";
+            $list_item_content = "";
         }
+        print $out_fh process_table(@table_lines);
+        
+        $i = $j - 1;
     }
-    else if (content ~ /^[[:space:]]*$/) {
-        if (in_table) {
-            table_buffer = table_buffer "</table>\n</div>\n"
-            if (!is_duplicate_table(table_buffer)) {
-                if (in_list_item) {
-                    list_item_content = list_item_content "\n" table_buffer
-                } else {
-                    print table_buffer
-                    add_to_processed_tables(table_buffer)
-                }
-            }
-            table_buffer = ""
-            in_table = 0
+    # 處理列表
+    elsif ($line =~ /^(\s*)((?:[0-9]+\.)|[-*])\s+(.+)/) {
+        my ($spaces, $marker, $text) = ($1, $2, $3);
+        my $list_type = $marker =~ /[0-9]+\./ ? 'ol' : 'ul';
+        my $this_indent = length($spaces);
+        
+        # 處理列表層級
+        while (@list_stack && $this_indent < $list_stack[-1]->{indent}) {
+            my $last = pop @list_stack;
+            print $out_fh "</li>\n" if $in_list_item;
+            print $out_fh "</$last->{type}>\n";
+            $in_list_item = 0;
         }
+        
+        # 如果是新的縮排層級
+        if (!@list_stack || $this_indent > $list_stack[-1]->{indent}) {
+            push @list_stack, {
+                type => $list_type,
+                indent => $this_indent
+            };
+            print $out_fh "</li>\n" if $in_list_item;
+            print $out_fh "<$list_type>\n";
+        } elsif ($this_indent == $list_stack[-1]->{indent}) {
+            print $out_fh "</li>\n" if $in_list_item;
+        }
+        
+        print $out_fh "<li>";
+        print $out_fh $text;
+        $in_list_item = 1;
     }
-    else if (in_list_item) {
-        list_item_content = list_item_content "\n" content
+    # 處理空行
+    elsif ($line =~ /^\s*$/) {
+        # 不處理空行，保持列表結構
+    }
+    # 處理一般文本
+    else {
+        if ($in_list_item) {
+            $list_item_content .= " $line";
+        } else {
+            print $out_fh "$line\n";
+        }
     }
     
-    prev_indent = indent
+    $prev_indent = $indent;
+    $i++;
 }
 
-END {
-    process_list_content()
-    close_lists_until(0)
-    if (in_table) {
-        table_buffer = table_buffer "</table>\n</div>\n"
-        if (!is_duplicate_table(table_buffer)) {
-            print table_buffer
-        }
-    }
-    print "</body>"
-    print "</html>"
-}
-' "$INPUT_FILE" > "$OUTPUT_FILE"
+# 處理最後的內容
+close_lists_until(0) if @list_stack;
 
-echo "處理完成。輸出檔案為: $OUTPUT_FILE"
+# 輸出 HTML 尾部
+print $out_fh "</body>\n</html>\n";
+
+# 關閉檔案
+close $in_fh;
+close $out_fh;
+
+print "處理完成。輸出檔案為: $output_file\n";
