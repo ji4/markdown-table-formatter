@@ -53,35 +53,57 @@ h6 { font-size: .75em; margin: 1.67em 0; }
 <body>
 HTML_HEAD
 
-sub get_indent {
-    my ($line) = @_;
-    return 0 unless $line =~ /\S/;
-    $line =~ /^(\s*)/;
-    return length($1);
+sub close_lists_until {
+    my ($target_indent) = @_;
+    while (@list_stack && $list_stack[-1]->{indent} >= $target_indent) {
+        my $last = pop @list_stack;
+        print $out_fh "</li>\n" if $in_list_item;
+        print $out_fh "</$last->{type}>\n";
+        $in_list_item = 0;
+    }
 }
 
 sub process_cell_content {
     my ($cell) = @_;
-    if ($cell =~ /^[[:space:]]*-/) {
-        # 將 <br>- 轉換為換行符加減號
-        $cell =~ s/<br>-/\n-/g;
-        my @items = split(/\n\s*-\s*/, $cell);
+    
+    # 移除開頭的空白
+    $cell =~ s/^\s+//;
+    
+    # 檢查是否包含列表項目
+    if ($cell =~ /[•]/ || $cell =~ /^-/) {
+        my @items = split(/[•]|-/, $cell);
         my $result = "<ul>\n";
         foreach my $item (@items) {
-            $item =~ s/^\s*-\s*//;
+            # 移除項目開頭和結尾的空白
             $item =~ s/^\s+|\s+$//g;
-            $result .= "    <li>$item</li>\n" if $item ne '';
+            if ($item ne '') {
+                $result .= "    <li>$item</li>\n";
+            }
         }
         $result .= "</ul>";
         return $result;
     }
+    
+    # 如果文本包含 <br>• 或 <br>-，轉換為列表
+    if ($cell =~ /<br>[•-]/) {
+        my @items = split(/<br>[•-]\s*/, $cell);
+        my $result = "<ul>\n";
+        foreach my $item (@items) {
+            $item =~ s/^\s+|\s+$//g;
+            if ($item ne '') {
+                $result .= "    <li>$item</li>\n";
+            }
+        }
+        $result .= "</ul>";
+        return $result;
+    }
+    
     return $cell;
 }
 
 sub process_table {
     my @rows = @_;
     my $table_html = "<div class=\"table-container\">\n<table>\n";
-    my $is_separator = 0;
     
     foreach my $row (@rows) {
         next if $row =~ /^\s*$/;  # 跳過空行
@@ -93,12 +115,7 @@ sub process_table {
         $table_html .= "<tr>\n";
         foreach my $cell (@cells) {
             $cell =~ s/^\s+|\s+$//g;  # 移除首尾空白
-            my $cell_content = $cell;
-            
-            if ($cell =~ /[•]/ || $cell =~ /^[[:space:]]*-/) {
-                $cell_content = process_cell_content($cell);
-            }
-            
+            my $cell_content = process_cell_content($cell);
             $table_html .= "  <td>$cell_content</td>\n";
         }
         $table_html .= "</tr>\n";
@@ -107,14 +124,11 @@ sub process_table {
     return $table_html;
 }
 
-sub close_lists_until {
-    my ($target_indent) = @_;
-    while (@list_stack && $list_stack[-1]->{indent} >= $target_indent) {
-        my $last = pop @list_stack;
-        print $out_fh "</li>\n" if $in_list_item;
-        print $out_fh "</$last->{type}>\n";
-        $in_list_item = 0;
-    }
+sub get_indent {
+    my ($line) = @_;
+    return 0 unless $line =~ /\S/;
+    $line =~ /^(\s*)/;
+    return length($1);
 }
 
 # 讀取整個文件到內存
@@ -131,8 +145,6 @@ chomp @lines;
 } @lines;
 
 my $i = 0;
-my $current_list_type = "";
-
 while ($i < @lines) {
     my $line = $lines[$i];
     my $indent = get_indent($line);
@@ -158,10 +170,6 @@ while ($i < @lines) {
         }
         
         # 輸出表格
-        if ($in_list_item) {
-            print $out_fh "$list_item_content\n";
-            $list_item_content = "";
-        }
         print $out_fh process_table(@table_lines);
         
         $i = $j - 1;
@@ -172,49 +180,48 @@ while ($i < @lines) {
         my $list_type = $marker =~ /[0-9]+\./ ? 'ol' : 'ul';
         my $this_indent = length($spaces);
         
-        # 處理列表層級
-        while (@list_stack && $this_indent < $list_stack[-1]->{indent}) {
-            my $last = pop @list_stack;
-            print $out_fh "</li>\n" if $in_list_item;
-            print $out_fh "</$last->{type}>\n";
-            $in_list_item = 0;
-        }
-        
-        # 如果是新的縮排層級
         if (!@list_stack || $this_indent > $list_stack[-1]->{indent}) {
             push @list_stack, {
                 type => $list_type,
                 indent => $this_indent
             };
-            print $out_fh "</li>\n" if $in_list_item;
             print $out_fh "<$list_type>\n";
+        } elsif ($this_indent < $list_stack[-1]->{indent}) {
+            while (@list_stack && $this_indent < $list_stack[-1]->{indent}) {
+                my $last = pop @list_stack;
+                print $out_fh "</li>\n" if $in_list_item;
+                print $out_fh "</$last->{type}>\n";
+                $in_list_item = 0;
+            }
+            if (@list_stack && $this_indent == $list_stack[-1]->{indent}) {
+                print $out_fh "</li>\n" if $in_list_item;
+            }
         } elsif ($this_indent == $list_stack[-1]->{indent}) {
             print $out_fh "</li>\n" if $in_list_item;
         }
         
-        print $out_fh "<li>";
-        print $out_fh $text;
+        print $out_fh "<li>$text";
         $in_list_item = 1;
-    }
-    # 處理空行
-    elsif ($line =~ /^\s*$/) {
-        # 不處理空行，保持列表結構
     }
     # 處理一般文本
     else {
         if ($in_list_item) {
-            $list_item_content .= " $line";
+            print $out_fh " $content";
         } else {
-            print $out_fh "$line\n";
+            print $out_fh "$content\n";
         }
     }
     
-    $prev_indent = $indent;
     $i++;
 }
 
-# 處理最後的內容
-close_lists_until(0) if @list_stack;
+# 關閉所有開啟的列表
+while (@list_stack) {
+    my $last = pop @list_stack;
+    print $out_fh "</li>\n" if $in_list_item;
+    print $out_fh "</$last->{type}>\n";
+    $in_list_item = 0;
+}
 
 # 輸出 HTML 尾部
 print $out_fh "</body>\n</html>\n";
