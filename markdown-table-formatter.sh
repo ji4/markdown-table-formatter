@@ -63,11 +63,21 @@ sub close_lists_until {
     }
 }
 
+# 處理粗體文本的函數 - 將 **text** 轉換為 <strong>text</strong>
+sub process_bold_text {
+    my ($text) = @_;
+    $text =~ s/\*\*([^*]+)\*\*/<strong>$1<\/strong>/g;
+    return $text;
+}
+
 sub process_cell_content {
     my ($cell) = @_;
     
     # 移除開頭的空白
     $cell =~ s/^\s+//;
+    
+    # 處理粗體文本
+    $cell = process_bold_text($cell);
     
     # 檢查是否包含列表項目
     if ($cell =~ /[•]/ || $cell =~ /^-/) {
@@ -155,6 +165,8 @@ while ($i < @lines) {
     if ($line =~ /^(#{1,6})\s+(.+)/) {
         my $level = length($1);
         my $title = $2;
+        # 處理標題中的粗體文本
+        $title = process_bold_text($title);
         close_lists_until(0) if @list_stack;
         print $out_fh "<h$level>$title</h$level>\n";
     }
@@ -177,6 +189,8 @@ while ($i < @lines) {
     # 處理列表
     elsif ($line =~ /^(\s*)((?:[0-9]+\.)|[-*])\s+(.+)/) {
         my ($spaces, $marker, $text) = ($1, $2, $3);
+        # 處理列表項目中的粗體文本
+        $text = process_bold_text($text);
         my $list_type = $marker =~ /[0-9]+\./ ? 'ol' : 'ul';
         my $this_indent = length($spaces);
         
@@ -205,6 +219,8 @@ while ($i < @lines) {
     }
     # 處理一般文本
     else {
+        # 處理一般文本中的粗體文本
+        $content = process_bold_text($content);
         if ($in_list_item) {
             print $out_fh " $content";
         } else {
