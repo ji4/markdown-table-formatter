@@ -116,7 +116,7 @@ You write your Markdown like this:
 ### Output Result
 The tool generates HTML that renders as a professional table with properly formatted lists inside cells.
 
-### Example 1: Table with Nested Lists ⭐ (Key Feature)
+### Example: Table with Nested Lists ⭐ (Key Feature)
 
 | **❌ Before (input with `<br>` tags)** | **✅ After (proper list formatting)** |
 |---------------------------------------|--------------------------------------|
@@ -125,13 +125,6 @@ The tool generates HTML that renders as a professional table with properly forma
 
 > **The magic**: Input shows `<br>` tags literally in one line, output renders as properly indented bullet lists!
 
-### Example 2: Complete Document with Headers
-
-| **Input (Markdown)** | **Rendered Output** |
-|---------------------|-------------------|
-| # Project Overview<br><br>Section \| Content<br>--------- \| ---------<br>**Title** \| Web App Development<br>Features \| • User authentication<br>• Data visualization<br>• Real-time updates | **Project Overview**<br><br>Section \| Content<br>--------- \| ---------<br>**Title** \| Web App Development<br>Features \| • User authentication<br>                  • Data visualization<br>                  • Real-time updates |
-
-> Headers are converted to proper HTML heading tags, and the entire document gets professional styling.
 
 ## 🎨 Visual Output Preview
 
