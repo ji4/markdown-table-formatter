@@ -90,6 +90,8 @@ mdtable --version
    | **Planning** | • Research competitors<br>• Define requirements<br>• Create mockups |
    | **Development** | • Set up environment<br>• Build core features |
    ```
+   
+   > **Key**: Use `<br>` between list items in table cells - the tool converts these to proper HTML lists!
 
 3. **Convert to HTML**:
    ```bash
@@ -101,23 +103,25 @@ mdtable --version
 
 ## 📝 Before & After Examples
 
+> **Note**: In the input examples, you write `<br>` to create line breaks between list items in table cells. The tool automatically converts these to proper HTML `<ul><li>` structure.
+
 ### Example 1: Simple Table
 
 | **Input (Markdown)** | **Output (HTML)** |
 |---------------------|-------------------|
-| ```markdown<br>&#124; Product &#124; **Price** &#124;<br>&#124;---------&#124;----------&#124;<br>&#124; iPhone  &#124; $999     &#124;<br>&#124; MacBook &#124; $1299    &#124;<br>``` | ```html<br>&lt;table&gt;<br>&nbsp;&nbsp;&lt;tr&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;Product&lt;/td&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;&lt;strong&gt;Price&lt;/strong&gt;&lt;/td&gt;<br>&nbsp;&nbsp;&lt;/tr&gt;<br>&nbsp;&nbsp;&lt;tr&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;iPhone&lt;/td&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;$999&lt;/td&gt;<br>&nbsp;&nbsp;&lt;/tr&gt;<br>&nbsp;&nbsp;&lt;tr&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;MacBook&lt;/td&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;$1299&lt;/td&gt;<br>&nbsp;&nbsp;&lt;/tr&gt;<br>&lt;/table&gt;<br>``` |
+| ```markdown<br>\| Product \| **Price** \|<br>\|---------|----------\|<br>\| iPhone  \| $999     \|<br>\| MacBook \| $1299    \|<br>``` | ```html<br><table><br>  <tr><br>    <td>Product</td><br>    <td><strong>Price</strong></td><br>  </tr><br>  <tr><br>    <td>iPhone</td><br>    <td>$999</td><br>  </tr><br>  <tr><br>    <td>MacBook</td><br>    <td>$1299</td><br>  </tr><br></table><br>``` |
 
-### Example 2: Table with Nested Lists
-
-| **Input (Markdown)** | **Output (HTML)** |
-|---------------------|-------------------|
-| ```markdown<br>&#124; Project Phase &#124; Tasks &#124;<br>&#124;---------&#124;----------&#124;<br>&#124; Planning &#124; • Research competitors&lt;br&gt;• Define requirements&lt;br&gt;• Create timeline &#124;<br>&#124; Development &#124; • Build MVP&lt;br&gt;• Test functionality &#124;<br>``` | ```html<br>&lt;table&gt;<br>&nbsp;&nbsp;&lt;tr&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;Planning&lt;/td&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;ul&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;li&gt;Research competitors&lt;/li&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;li&gt;Define requirements&lt;/li&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;li&gt;Create timeline&lt;/li&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/ul&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;/td&gt;<br>&nbsp;&nbsp;&lt;/tr&gt;<br>&lt;/table&gt;<br>``` |
-
-### Example 3: Complete Document
+### Example 2: Table with Nested Lists ⭐ (Key Feature)
 
 | **Input (Markdown)** | **Output (HTML)** |
 |---------------------|-------------------|
-| ```markdown<br># Project Overview<br><br>&#124; Section &#124; Content &#124;<br>&#124;---------&#124;---------&#124;<br>&#124; **Title** &#124; Web App Development &#124;<br>&#124; Features &#124; • User authentication&lt;br&gt;• Data visualization&lt;br&gt;• Real-time updates &#124;<br>``` | ```html<br>&lt;h1&gt;Project Overview&lt;/h1&gt;<br><br>&lt;table&gt;<br>&nbsp;&nbsp;&lt;tr&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;&lt;strong&gt;Title&lt;/strong&gt;&lt;/td&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;Web App Development&lt;/td&gt;<br>&nbsp;&nbsp;&lt;/tr&gt;<br>&nbsp;&nbsp;&lt;tr&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;Features&lt;/td&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;td&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;ul&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;li&gt;User authentication&lt;/li&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;li&gt;Data visualization&lt;/li&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;li&gt;Real-time updates&lt;/li&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/ul&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;/td&gt;<br>&nbsp;&nbsp;&lt;/tr&gt;<br>&lt;/table&gt;<br>``` |
+| ```markdown<br>\| Project Phase \| Tasks \|<br>\|---------\|----------\|<br>\| Planning \| • Research competitors<br>• Define requirements<br>• Create timeline \|<br>\| Development \| • Build MVP<br>• Test functionality \|<br>``` | ```html<br><table><br>  <tr><br>    <td>Planning</td><br>    <td><br>      <ul><br>        <li>Research competitors</li><br>        <li>Define requirements</li><br>        <li>Create timeline</li><br>      </ul><br>    </td><br>  </tr><br>  <tr><br>    <td>Development</td><br>    <td><br>      <ul><br>        <li>Build MVP</li><br>        <li>Test functionality</li><br>      </ul><br>    </td><br>  </tr><br></table><br>``` |
+
+### Example 3: Complete Document with Headers
+
+| **Input (Markdown)** | **Output (HTML)** |
+|---------------------|-------------------|
+| ```markdown<br># Project Overview<br><br>\| Section \| Content \|<br>\|---------\|---------\|<br>\| **Title** \| Web App Development \|<br>\| Features \| • User authentication<br>• Data visualization<br>• Real-time updates \|<br>``` | ```html<br><h1>Project Overview</h1><br><br><table><br>  <tr><br>    <td><strong>Title</strong></td><br>    <td>Web App Development</td><br>  </tr><br>  <tr><br>    <td>Features</td><br>    <td><br>      <ul><br>        <li>User authentication</li><br>        <li>Data visualization</li><br>        <li>Real-time updates</li><br>      </ul><br>    </td><br>  </tr><br></table><br>``` |
 
 ## 🎨 Visual Output Preview
 
