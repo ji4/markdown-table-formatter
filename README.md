@@ -96,7 +96,7 @@ mdtable --version
 3. **Convert to HTML**:
    ```bash
    mdtable example.md
-   # Creates: example_html.html
+   # Creates: example.html
    ```
 
 4. **Open in browser** to see the professionally styled result! 🎉
@@ -173,7 +173,7 @@ The generated HTML creates professional-looking tables with proper styling:
 To modify default settings, edit the variables at the beginning of the script:
 ```bash
 INPUT_FILE="table.md"        # Input filename
-OUTPUT_FILE="${INPUT_FILE%.*}_html.html"  # Output filename
+OUTPUT_FILE="${INPUT_FILE%.*}.html"  # Output filename
 ```
 
 ## Important Notes

@@ -37,12 +37,12 @@ ARGUMENTS:
 
 OPTIONS:
     -i, --input <FILE>     Input Markdown file
-    -o, --output <FILE>    Output HTML file (default: <input>_html.html)
+    -o, --output <FILE>    Output HTML file (default: <input>.html)
     -h, --help             Show this help message
     -v, --version          Show version information
 
 EXAMPLES:
-    mdtable table.md                          # Convert table.md to table_html.html
+    mdtable table.md                          # Convert table.md to table.html
     mdtable -i input.md -o output.html        # Specify both input and output
     mdtable --input data.md                   # Use long option names
 
@@ -66,8 +66,8 @@ if (@ARGV && !$input_file) {
 # 确定输出文件
 if (!$output_file) {
     $output_file = $input_file;
-    $output_file =~ s/\.md$/_html.html/;
-    $output_file =~ s/\.txt$/_html.html/;
+    $output_file =~ s/\.md$/.html/;
+    $output_file =~ s/\.txt$/.html/;
 }
 
 # 检查输入文件是否存在
