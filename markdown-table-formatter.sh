@@ -307,4 +307,7 @@ print $out_fh "</body>\n</html>\n";
 close $in_fh;
 close $out_fh;
 
-print "✅ Successfully converted '$input_file' to '$output_file'\n";
+# 使用简单的ASCII字符输出，避免UTF-8显示问题
+print "[SUCCESS] Markdown to HTML conversion completed!\n";
+print "Input file:  $input_file\n";
+print "Output file: $output_file\n";
