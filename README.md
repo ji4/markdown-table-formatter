@@ -107,21 +107,28 @@ mdtable --version
 
 ### Example 1: Simple Table
 
-| **Input (Markdown)** | **Output (HTML)** |
+| **Input (Markdown)** | **Rendered Output** |
 |---------------------|-------------------|
-| ```markdown<br>\| Product \| **Price** \|<br>\|---------|----------\|<br>\| iPhone  \| $999     \|<br>\| MacBook \| $1299    \|<br>``` | ```html<br><table><br>  <tr><br>    <td>Product</td><br>    <td><strong>Price</strong></td><br>  </tr><br>  <tr><br>    <td>iPhone</td><br>    <td>$999</td><br>  </tr><br>  <tr><br>    <td>MacBook</td><br>    <td>$1299</td><br>  </tr><br></table><br>``` |
+| Product \| **Price**<br>--------- \| ----------<br>iPhone \| $999<br>MacBook \| $1299 | Product \| **Price**<br>--------- \| ----------<br>iPhone \| $999<br>MacBook \| $1299 |
+
+> Simple tables work exactly as expected with proper styling and formatting.
 
 ### Example 2: Table with Nested Lists ⭐ (Key Feature)
 
-| **Input (Markdown)** | **Output (HTML)** |
-|---------------------|-------------------|
-| ```markdown<br>\| Project Phase \| Tasks \|<br>\|---------\|----------\|<br>\| Planning \| • Research competitors<br>• Define requirements<br>• Create timeline \|<br>\| Development \| • Build MVP<br>• Test functionality \|<br>``` | ```html<br><table><br>  <tr><br>    <td>Planning</td><br>    <td><br>      <ul><br>        <li>Research competitors</li><br>        <li>Define requirements</li><br>        <li>Create timeline</li><br>      </ul><br>    </td><br>  </tr><br>  <tr><br>    <td>Development</td><br>    <td><br>      <ul><br>        <li>Build MVP</li><br>        <li>Test functionality</li><br>      </ul><br>    </td><br>  </tr><br></table><br>``` |
+| **❌ Before (shows `<br>` literally)** | **✅ After (proper list formatting)** |
+|---------------------------------------|--------------------------------------|
+| Planning → • Research competitors<br>• Define requirements<br>• Create timeline | Planning → • Research competitors<br>                    • Define requirements<br>                    • Create timeline |
+| Development → • Build MVP<br>• Test functionality | Development → • Build MVP<br>                        • Test functionality |
+
+> **The magic**: Input uses `<br>` between list items, output renders as properly indented bullet lists!
 
 ### Example 3: Complete Document with Headers
 
-| **Input (Markdown)** | **Output (HTML)** |
+| **Input (Markdown)** | **Rendered Output** |
 |---------------------|-------------------|
-| ```markdown<br># Project Overview<br><br>\| Section \| Content \|<br>\|---------\|---------\|<br>\| **Title** \| Web App Development \|<br>\| Features \| • User authentication<br>• Data visualization<br>• Real-time updates \|<br>``` | ```html<br><h1>Project Overview</h1><br><br><table><br>  <tr><br>    <td><strong>Title</strong></td><br>    <td>Web App Development</td><br>  </tr><br>  <tr><br>    <td>Features</td><br>    <td><br>      <ul><br>        <li>User authentication</li><br>        <li>Data visualization</li><br>        <li>Real-time updates</li><br>      </ul><br>    </td><br>  </tr><br></table><br>``` |
+| # Project Overview<br><br>Section \| Content<br>--------- \| ---------<br>**Title** \| Web App Development<br>Features \| • User authentication<br>• Data visualization<br>• Real-time updates | **Project Overview**<br><br>Section \| Content<br>--------- \| ---------<br>**Title** \| Web App Development<br>Features \| • User authentication<br>                  • Data visualization<br>                  • Real-time updates |
+
+> Headers are converted to proper HTML heading tags, and the entire document gets professional styling.
 
 ## 🎨 Visual Output Preview
 
