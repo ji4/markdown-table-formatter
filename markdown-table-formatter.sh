@@ -7,11 +7,13 @@ use Encode qw(decode encode);
 use Getopt::Long;
 use Pod::Usage;
 
-# Ensure STDOUT uses proper UTF-8 encoding
+# Set UTF-8 encoding for all I/O
+binmode(STDIN, ':encoding(UTF-8)');
 binmode(STDOUT, ':encoding(UTF-8)');
+binmode(STDERR, ':encoding(UTF-8)');
 
 # Version information
-my $VERSION = '1.0.2';
+my $VERSION = '1.0.3';
 
 # Command line parameters
 my $input_file;
@@ -311,5 +313,16 @@ print $out_fh "</body>\n</html>\n";
 close $in_fh;
 close $out_fh;
 
-# Properly handle UTF-8 output
-print "✅ Successfully converted '$input_file' to '$output_file'\n";
+# Handle UTF-8 output properly - decode filename if needed
+my $display_input = $input_file;
+my $display_output = $output_file;
+
+# Try to ensure proper encoding for display
+eval {
+    $display_input = decode('UTF-8', $input_file) if !utf8::is_utf8($input_file);
+    $display_output = decode('UTF-8', $output_file) if !utf8::is_utf8($output_file);
+};
+
+print "✅ Conversion completed successfully!\n";
+print "Input: $display_input\n";
+print "Output: $display_output\n";
