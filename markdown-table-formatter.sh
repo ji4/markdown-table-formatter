@@ -3,11 +3,15 @@ use strict;
 use warnings;
 use utf8;
 use open qw(:std :utf8);
+use Encode qw(decode encode);
 use Getopt::Long;
 use Pod::Usage;
 
+# 确保 STDOUT 使用正确的 UTF-8 编码
+binmode(STDOUT, ':encoding(UTF-8)');
+
 # 版本信息
-my $VERSION = '1.0.0';
+my $VERSION = '1.0.1';
 
 # 命令行参数
 my $input_file;
@@ -307,7 +311,5 @@ print $out_fh "</body>\n</html>\n";
 close $in_fh;
 close $out_fh;
 
-# 使用简单的ASCII字符输出，避免UTF-8显示问题
-print "[SUCCESS] Markdown to HTML conversion completed!\n";
-print "Input file:  $input_file\n";
-print "Output file: $output_file\n";
+# 正确处理 UTF-8 输出
+print "✅ Successfully converted '$input_file' to '$output_file'\n";
