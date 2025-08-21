@@ -116,6 +116,14 @@ You write your Markdown like this:
 ### Output Result
 The tool generates HTML that renders as a professional table with properly formatted lists inside cells.
 
+### Example: Complete Document with Headers
+
+| **Input (Markdown)** | **Rendered Output** |
+|---------------------|-------------------|
+| # Project Overview<br><br>Section \| Content<br>--------- \| ---------<br>**Title** \| Web App Development<br>Features \| • User authentication<br>• Data visualization<br>• Real-time updates | **Project Overview**<br><br>Section \| Content<br>--------- \| ---------<br>**Title** \| Web App Development<br>Features \| • User authentication<br>                  • Data visualization<br>                  • Real-time updates |
+
+> Headers are converted to proper HTML heading tags, and the entire document gets professional styling.
+
 ## 🎨 Visual Output Preview
 
 The generated HTML creates professional-looking tables with proper styling:
