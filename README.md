@@ -1,45 +1,65 @@
-# Markdown Table to HTML Converter
+# mdtable - Markdown Table to HTML Converter
 
 A command-line tool that converts Markdown tables and lists to HTML, with special handling for nested lists within table cells.
 
 ## Features
 
-- Converts Markdown tables to HTML tables
-- Supports nested lists within table cells (using • or - symbols)
-- Preserves plain text formatting
-- Supports basic Markdown formatting (headers, bold, italic)
-- Generates appropriate CSS styling
-- UTF-8 support for international characters
-
-## System Requirements
-
-- Unix-like operating system (Linux, macOS)
-- Bash shell
-- AWK
+- ✅ Converts Markdown tables to HTML tables
+- ✅ Supports nested lists within table cells (using • or - symbols)
+- ✅ Preserves text formatting (bold, italic)
+- ✅ Supports headers (H1-H6)
+- ✅ Generates responsive CSS styling
+- ✅ UTF-8 support for international characters
+- ✅ Command-line interface with flexible options
 
 ## Installation
 
-1. Clone the repository:
+### Homebrew (Recommended)
+
 ```bash
-git clone [repository-url]
-cd [repository-name]
+# Add the tap
+brew tap ji4/tap
+
+# Install mdtable
+brew install mdtable
 ```
 
-2. Make the script executable:
+### Manual Installation
+
 ```bash
-chmod +x md_to_html.sh
+# Download and install
+curl -o mdtable https://raw.githubusercontent.com/ji4/markdown-table-formatter/main/markdown-table-formatter.sh
+chmod +x mdtable
+sudo mv mdtable /usr/local/bin/
+```
+
+### From Source
+
+```bash
+git clone https://github.com/ji4/markdown-table-formatter.git
+cd markdown-table-formatter
+chmod +x markdown-table-formatter.sh
+sudo cp markdown-table-formatter.sh /usr/local/bin/mdtable
 ```
 
 ## Usage
 
-1. Prepare your Markdown file (default name: `table.md`)
-
-2. Run the script:
 ```bash
-./md_to_html.sh
-```
+# Basic usage
+mdtable input.md
 
-3. Check the output file (default: `table_html.html`)
+# Specify output file
+mdtable input.md -o output.html
+
+# Using long options
+mdtable --input data.md --output result.html
+
+# Show help
+mdtable --help
+
+# Show version
+mdtable --version
+```
 
 ### Input File Format Example
 

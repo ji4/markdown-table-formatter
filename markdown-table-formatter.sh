@@ -3,15 +3,76 @@ use strict;
 use warnings;
 use utf8;
 use open qw(:std :utf8);
+use Getopt::Long;
+use Pod::Usage;
 
-# 設定檔案名稱
-my $input_file = "table.md";
-my $output_file = $input_file;
-$output_file =~ s/\.md$/_html.html/;
+# 版本信息
+my $VERSION = '1.0.0';
 
-# 檢查輸入檔案是否存在
+# 命令行参数
+my $input_file;
+my $output_file;
+my $help = 0;
+my $version = 0;
+
+# 解析命令行参数
+GetOptions(
+    'input|i=s'   => \$input_file,
+    'output|o=s'  => \$output_file,
+    'help|h'      => \$help,
+    'version|v'   => \$version,
+) or pod2usage(2);
+
+# 显示帮助信息
+if ($help) {
+    print <<'HELP';
+mdtable - Markdown table to HTML converter
+
+USAGE:
+    mdtable [OPTIONS] <input.md>
+    mdtable [OPTIONS] --input <input.md> --output <output.html>
+
+ARGUMENTS:
+    <input.md>    Input Markdown file (default: table.md)
+
+OPTIONS:
+    -i, --input <FILE>     Input Markdown file
+    -o, --output <FILE>    Output HTML file (default: <input>_html.html)
+    -h, --help             Show this help message
+    -v, --version          Show version information
+
+EXAMPLES:
+    mdtable table.md                          # Convert table.md to table_html.html
+    mdtable -i input.md -o output.html        # Specify both input and output
+    mdtable --input data.md                   # Use long option names
+
+HELP
+    exit 0;
+}
+
+# 显示版本信息
+if ($version) {
+    print "mdtable version $VERSION\n";
+    exit 0;
+}
+
+# 确定输入文件
+if (@ARGV && !$input_file) {
+    $input_file = $ARGV[0];
+} elsif (!$input_file) {
+    $input_file = "table.md";
+}
+
+# 确定输出文件
+if (!$output_file) {
+    $output_file = $input_file;
+    $output_file =~ s/\.md$/_html.html/;
+    $output_file =~ s/\.txt$/_html.html/;
+}
+
+# 检查输入文件是否存在
 unless (-f $input_file) {
-    die "錯誤: 找不到輸入檔案 '$input_file'\n";
+    die "Error: Input file '$input_file' not found\nTry 'mdtable --help' for more information.\n";
 }
 
 # 初始化變數
@@ -246,4 +307,4 @@ print $out_fh "</body>\n</html>\n";
 close $in_fh;
 close $out_fh;
 
-print "處理完成。輸出檔案為: $output_file\n";
+print "✅ Successfully converted '$input_file' to '$output_file'\n";
