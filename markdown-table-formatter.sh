@@ -7,19 +7,19 @@ use Encode qw(decode encode);
 use Getopt::Long;
 use Pod::Usage;
 
-# 确保 STDOUT 使用正确的 UTF-8 编码
+# Ensure STDOUT uses proper UTF-8 encoding
 binmode(STDOUT, ':encoding(UTF-8)');
 
-# 版本信息
-my $VERSION = '1.0.1';
+# Version information
+my $VERSION = '1.0.2';
 
-# 命令行参数
+# Command line parameters
 my $input_file;
 my $output_file;
 my $help = 0;
 my $version = 0;
 
-# 解析命令行参数
+# Parse command line arguments
 GetOptions(
     'input|i=s'   => \$input_file,
     'output|o=s'  => \$output_file,
@@ -27,7 +27,7 @@ GetOptions(
     'version|v'   => \$version,
 ) or pod2usage(2);
 
-# 显示帮助信息
+# Show help information
 if ($help) {
     print <<'HELP';
 mdtable - Markdown table to HTML converter
@@ -54,32 +54,32 @@ HELP
     exit 0;
 }
 
-# 显示版本信息
+# Show version information
 if ($version) {
     print "mdtable version $VERSION\n";
     exit 0;
 }
 
-# 确定输入文件
+# Determine input file
 if (@ARGV && !$input_file) {
     $input_file = $ARGV[0];
 } elsif (!$input_file) {
     $input_file = "table.md";
 }
 
-# 确定输出文件
+# Determine output file
 if (!$output_file) {
     $output_file = $input_file;
     $output_file =~ s/\.md$/.html/;
     $output_file =~ s/\.txt$/.html/;
 }
 
-# 检查输入文件是否存在
+# Check if input file exists
 unless (-f $input_file) {
     die "Error: Input file '$input_file' not found\nTry 'mdtable --help' for more information.\n";
 }
 
-# 初始化變數
+# Initialize variables
 my $in_table = 0;
 my $table_buffer = "";
 my $prev_indent = -1;
@@ -88,11 +88,11 @@ my $in_list_item = 0;
 my @list_stack = ();
 my %processed_tables;
 
-# 打開檔案
-open(my $in_fh, '<:utf8', $input_file) or die "無法開啟輸入檔案: $!";
-open(my $out_fh, '>:utf8', $output_file) or die "無法開啟輸出檔案: $!";
+# Open files
+open(my $in_fh, '<:utf8', $input_file) or die "Cannot open input file: $!";
+open(my $out_fh, '>:utf8', $output_file) or die "Cannot open output file: $!";
 
-# 輸出 HTML 頭部
+# Output HTML header
 print $out_fh <<'HTML_HEAD';
 <!DOCTYPE html>
 <html>
@@ -128,7 +128,7 @@ sub close_lists_until {
     }
 }
 
-# 處理粗體文本的函數 - 將 **text** 轉換為 <strong>text</strong>
+# Function to process bold text - convert **text** to <strong>text</strong>
 sub process_bold_text {
     my ($text) = @_;
     $text =~ s/\*\*([^*]+)\*\*/<strong>$1<\/strong>/g;
@@ -138,18 +138,18 @@ sub process_bold_text {
 sub process_cell_content {
     my ($cell) = @_;
     
-    # 移除開頭的空白
+    # Remove leading whitespace
     $cell =~ s/^\s+//;
     
-    # 處理粗體文本
+    # Process bold text
     $cell = process_bold_text($cell);
     
-    # 檢查是否包含列表項目
+    # Check if contains list items
     if ($cell =~ /[•]/ || $cell =~ /^-/) {
         my @items = split(/[•]|-/, $cell);
         my $result = "<ul>\n";
         foreach my $item (@items) {
-            # 移除項目開頭和結尾的空白
+            # Remove leading and trailing whitespace from item
             $item =~ s/^\s+|\s+$//g;
             if ($item ne '') {
                 $result .= "    <li>$item</li>\n";
@@ -159,7 +159,7 @@ sub process_cell_content {
         return $result;
     }
     
-    # 如果文本包含 <br>• 或 <br>-，轉換為列表
+    # If text contains <br>• or <br>-, convert to list
     if ($cell =~ /<br>[•-]/) {
         my @items = split(/<br>[•-]\s*/, $cell);
         my $result = "<ul>\n";
@@ -181,15 +181,15 @@ sub process_table {
     my $table_html = "<div class=\"table-container\">\n<table>\n";
     
     foreach my $row (@rows) {
-        next if $row =~ /^\s*$/;  # 跳過空行
-        next if $row =~ /^[|\s:-]+$/;  # 跳過分隔線
+        next if $row =~ /^\s*$/;  # Skip empty lines
+        next if $row =~ /^[|\s:-]+$/;  # Skip separator lines
         
-        $row =~ s/^\s*\|\s*|\s*\|\s*$//g;  # 移除首尾的 |
+        $row =~ s/^\s*\|\s*|\s*\|\s*$//g;  # Remove leading and trailing |
         my @cells = split /\s*\|\s*/, $row;
         
         $table_html .= "<tr>\n";
         foreach my $cell (@cells) {
-            $cell =~ s/^\s+|\s+$//g;  # 移除首尾空白
+            $cell =~ s/^\s+|\s+$//g;  # Remove leading and trailing whitespace
             my $cell_content = process_cell_content($cell);
             $table_html .= "  <td>$cell_content</td>\n";
         }
@@ -206,11 +206,11 @@ sub get_indent {
     return length($1);
 }
 
-# 讀取整個文件到內存
+# Read entire file into memory
 my @lines = <$in_fh>;
 chomp @lines;
 
-# 移除介紹性文本
+# Remove introductory text
 @lines = grep { 
     !/^我會幫您將文字完整整理/ &&
     !/^第一部分/ &&
@@ -226,35 +226,35 @@ while ($i < @lines) {
     my $content = $line;
     $content =~ s/^\s+//;
     
-    # 處理標題
+    # Process headers
     if ($line =~ /^(#{1,6})\s+(.+)/) {
         my $level = length($1);
         my $title = $2;
-        # 處理標題中的粗體文本
+        # Process bold text in headers
         $title = process_bold_text($title);
         close_lists_until(0) if @list_stack;
         print $out_fh "<h$level>$title</h$level>\n";
     }
-    # 檢測表格開始
+    # Detect table start
     elsif ($line =~ /^\s*\|/) {
         my @table_lines;
         my $j = $i;
         
-        # 收集表格所有行
+        # Collect all table rows
         while ($j < @lines && ($lines[$j] =~ /^\s*\|/ || $lines[$j] =~ /^\s*$/)) {
             push @table_lines, $lines[$j] unless $lines[$j] =~ /^\s*$/;
             $j++;
         }
         
-        # 輸出表格
+        # Output table
         print $out_fh process_table(@table_lines);
         
         $i = $j - 1;
     }
-    # 處理列表
+    # Process lists
     elsif ($line =~ /^(\s*)((?:[0-9]+\.)|[-*])\s+(.+)/) {
         my ($spaces, $marker, $text) = ($1, $2, $3);
-        # 處理列表項目中的粗體文本
+        # Process bold text in list items
         $text = process_bold_text($text);
         my $list_type = $marker =~ /[0-9]+\./ ? 'ol' : 'ul';
         my $this_indent = length($spaces);
@@ -282,9 +282,9 @@ while ($i < @lines) {
         print $out_fh "<li>$text";
         $in_list_item = 1;
     }
-    # 處理一般文本
+    # Process general text
     else {
-        # 處理一般文本中的粗體文本
+        # Process bold text in general text
         $content = process_bold_text($content);
         if ($in_list_item) {
             print $out_fh " $content";
@@ -296,7 +296,7 @@ while ($i < @lines) {
     $i++;
 }
 
-# 關閉所有開啟的列表
+# Close all open lists
 while (@list_stack) {
     my $last = pop @list_stack;
     print $out_fh "</li>\n" if $in_list_item;
@@ -304,12 +304,12 @@ while (@list_stack) {
     $in_list_item = 0;
 }
 
-# 輸出 HTML 尾部
+# Output HTML footer
 print $out_fh "</body>\n</html>\n";
 
-# 關閉檔案
+# Close files
 close $in_fh;
 close $out_fh;
 
-# 正确处理 UTF-8 输出
+# Properly handle UTF-8 output
 print "✅ Successfully converted '$input_file' to '$output_file'\n";
