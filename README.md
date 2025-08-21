@@ -115,12 +115,12 @@ mdtable --version
 
 ### Example 2: Table with Nested Lists ⭐ (Key Feature)
 
-| **❌ Before (shows `<br>` literally)** | **✅ After (proper list formatting)** |
+| **❌ Before (input with `<br>` tags)** | **✅ After (proper list formatting)** |
 |---------------------------------------|--------------------------------------|
-| Planning → • Research competitors<br>• Define requirements<br>• Create timeline | Planning → • Research competitors<br>                    • Define requirements<br>                    • Create timeline |
-| Development → • Build MVP<br>• Test functionality | Development → • Build MVP<br>                        • Test functionality |
+| Planning → • Research competitors&lt;br&gt;• Define requirements&lt;br&gt;• Create timeline | Planning → • Research competitors<br>                    • Define requirements<br>                    • Create timeline |
+| Development → • Build MVP&lt;br&gt;• Test functionality | Development → • Build MVP<br>                        • Test functionality |
 
-> **The magic**: Input uses `<br>` between list items, output renders as properly indented bullet lists!
+> **The magic**: Input shows `<br>` tags literally in one line, output renders as properly indented bullet lists!
 
 ### Example 3: Complete Document with Headers
 
