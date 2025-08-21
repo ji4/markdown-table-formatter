@@ -101,34 +101,20 @@ mdtable --version
 
 4. **Open in browser** to see the professionally styled result! 🎉
 
-## 📝 Before & After Examples
+## 🎯 What This Tool Does
 
-> **Note**: In the input examples, you write `<br>` to create line breaks between list items in table cells. The tool automatically converts these to proper HTML `<ul><li>` structure.
+The key feature is converting **lists within table cells** from `<br>` separated text to proper HTML lists with bullets and indentation.
 
-### Example 1: Simple Table
+### Input Format
+You write your Markdown like this:
+```markdown
+| Task Category | Action Items |
+|---------------|--------------|
+| Planning | • Research market<br>• Define goals<br>• Set timeline |
+```
 
-| **Input (Markdown)** | **Rendered Output** |
-|---------------------|-------------------|
-| Product \| **Price**<br>--------- \| ----------<br>iPhone \| $999<br>MacBook \| $1299 | Product \| **Price**<br>--------- \| ----------<br>iPhone \| $999<br>MacBook \| $1299 |
-
-> Simple tables work exactly as expected with proper styling and formatting.
-
-### Example 2: Table with Nested Lists ⭐ (Key Feature)
-
-| **❌ Before (input with `<br>` tags)** | **✅ After (proper list formatting)** |
-|---------------------------------------|--------------------------------------|
-| Planning → • Research competitors&lt;br&gt;• Define requirements&lt;br&gt;• Create timeline | Planning → • Research competitors<br>                    • Define requirements<br>                    • Create timeline |
-| Development → • Build MVP&lt;br&gt;• Test functionality | Development → • Build MVP<br>                        • Test functionality |
-
-> **The magic**: Input shows `<br>` tags literally in one line, output renders as properly indented bullet lists!
-
-### Example 3: Complete Document with Headers
-
-| **Input (Markdown)** | **Rendered Output** |
-|---------------------|-------------------|
-| # Project Overview<br><br>Section \| Content<br>--------- \| ---------<br>**Title** \| Web App Development<br>Features \| • User authentication<br>• Data visualization<br>• Real-time updates | **Project Overview**<br><br>Section \| Content<br>--------- \| ---------<br>**Title** \| Web App Development<br>Features \| • User authentication<br>                  • Data visualization<br>                  • Real-time updates |
-
-> Headers are converted to proper HTML heading tags, and the entire document gets professional styling.
+### Output Result
+The tool generates HTML that renders as a professional table with properly formatted lists inside cells.
 
 ## 🎨 Visual Output Preview
 
