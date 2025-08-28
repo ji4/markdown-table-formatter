@@ -13,7 +13,7 @@ binmode(STDOUT, ':encoding(UTF-8)');
 binmode(STDERR, ':encoding(UTF-8)');
 
 # Version information
-my $VERSION = '1.0.3';
+my $VERSION = '1.0.4';
 
 # Command line parameters
 my $input_file;
