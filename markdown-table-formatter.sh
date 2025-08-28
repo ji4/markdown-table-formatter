@@ -115,6 +115,7 @@ h3 { font-size: 1.17em; margin: 0.83em 0; }
 h4 { font-size: 1em; margin: 1.12em 0; }
 h5 { font-size: .83em; margin: 1.5em 0; }
 h6 { font-size: .75em; margin: 1.67em 0; }
+hr { border: none; border-top: 1px solid #ccc; margin: 1em 0; }
 </style>
 </head>
 <body>
