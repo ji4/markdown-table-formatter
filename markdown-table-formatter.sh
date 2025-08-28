@@ -184,7 +184,7 @@ sub process_table {
     
     foreach my $row (@rows) {
         next if $row =~ /^\s*$/;  # Skip empty lines
-        next if $row =~ /^[|\s:-]+$/;  # Skip separator lines
+        next if $row =~ /^\s*\|?[\s:-|]+\|?\s*$/;  # Skip separator lines
         
         $row =~ s/^\s*\|\s*|\s*\|\s*$//g;  # Remove leading and trailing |
         my @cells = split /\s*\|\s*/, $row;
@@ -236,6 +236,10 @@ while ($i < @lines) {
         $title = process_bold_text($title);
         close_lists_until(0) if @list_stack;
         print $out_fh "<h$level>$title</h$level>\n";
+    }
+    # Skip horizontal rules (--- or ***)
+    elsif ($line =~ /^\s*[-*]{3,}\s*$/) {
+        # Skip these lines completely
     }
     # Detect table start
     elsif ($line =~ /^\s*\|/) {
