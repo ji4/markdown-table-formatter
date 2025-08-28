@@ -237,9 +237,10 @@ while ($i < @lines) {
         close_lists_until(0) if @list_stack;
         print $out_fh "<h$level>$title</h$level>\n";
     }
-    # Skip horizontal rules (--- or ***)
+    # Convert horizontal rules (--- or ***) to HTML hr tag
     elsif ($line =~ /^\s*[-*]{3,}\s*$/) {
-        # Skip these lines completely
+        close_lists_until(0) if @list_stack;
+        print $out_fh "<hr>\n";
     }
     # Detect table start
     elsif ($line =~ /^\s*\|/) {
